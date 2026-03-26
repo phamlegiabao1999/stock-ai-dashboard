@@ -1,6 +1,6 @@
 streamlit
 yfinance
-matplotlib
-pandas
+pd
 numpy
 plotly
+streamlit-lottie
