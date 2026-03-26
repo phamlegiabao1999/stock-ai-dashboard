@@ -141,32 +141,34 @@ if ma_chinh:
         fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=450, margin=dict(l=10, r=10, t=10, b=10))
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- PHẦN REVIEW ĐỐI ĐẦU (NẾU CÓ SO SÁNH) ---
+        # --- PHẦN NHẬN ĐỊNH VÀ REVIEW (LUÔN HIỂN THỊ) ---
+        st.markdown("---")
         if enable_compare and ma_ss:
-            st.markdown("---")
             st.subheader(f"⚔️ Review Đối Đầu: {ma_chinh} vs {ma_ss}")
             df_s, stock_s_obj = get_clean_data(ma_ss)
-            
             if df_s is not None:
-                # 1. So sánh hiệu suất
                 comb = pd.concat([df['Close'], df_s['Close']], axis=1).dropna()
                 perf = pd.DataFrame({ma_chinh: (comb.iloc[:,0]/comb.iloc[0,0]-1)*100, ma_ss: (comb.iloc[:,1]/comb.iloc[0,1]-1)*100}, index=comb.index)
                 st.line_chart(perf)
                 
-                # 2. Bảng nhận định chi tiết
                 c_rev1, c_rev2 = st.columns(2)
-                i_main = stock_obj.info
-                i_ss = stock_s_obj.info
-                
                 with c_rev1:
-                    st.info(f"🔎 **Góc nhìn kỹ thuật:**\n- {ma_chinh} đang có RSI là {rsi_ht:.2f}, trong khi {ma_ss} đạt {float(df_s['RSI'].iloc[-1]):.2f}.\n- {'Sức mạnh giá của ' + ma_chinh + ' tốt hơn' if rsi_ht > float(df_s['RSI'].iloc[-1]) else 'Cơ hội tích lũy nằm ở ' + ma_chinh if rsi_ht < 40 else ma_ss + ' đang hút tiền mạnh hơn'}.")
-                
+                    st.info(f"🔎 **Góc nhìn kỹ thuật:**\n- {ma_chinh} RSI: {rsi_ht:.2f} | {ma_ss} RSI: {float(df_s['RSI'].iloc[-1]):.2f}.\n- {'Sức mạnh giá của ' + ma_chinh + ' tốt hơn' if rsi_ht > float(df_s['RSI'].iloc[-1]) else ma_ss + ' đang hút tiền mạnh hơn'}.")
                 with c_rev2:
-                    pe_main = i_main.get('trailingPE', 'N/A')
-                    pe_ss = i_ss.get('trailingPE', 'N/A')
-                    st.success(f"💎 **Định giá MBA:**\n- P/E {ma_chinh}: {pe_main} | P/E {ma_ss}: {pe_ss}.\n- {'Về mặt định giá, ' + ma_chinh + ' đang rẻ hơn đối thủ.' if isinstance(pe_main, (int, float)) and isinstance(pe_ss, (int, float)) and pe_main < pe_ss else 'Thị trường đang trả giá cao hơn cho kỳ vọng của ' + ma_chinh if pe_main != 'N/A' else 'Dữ liệu định giá đang cập nhật.'}")
-
-                st.warning(f"💡 **Kết luận Sales Executive:** Nếu ưu tiên sự an toàn, hãy nhìn vào MA20. Nếu ưu tiên đột phá, hãy theo dõi tin tức ngành của cả hai mã tại header.")
+                    pe_main = stock_obj.info.get('trailingPE', 'N/A')
+                    pe_ss = stock_s_obj.info.get('trailingPE', 'N/A')
+                    st.success(f"💎 **Định giá MBA:**\n- P/E {ma_chinh}: {pe_main} | P/E {ma_ss}: {pe_ss}.\n- {'Định giá của ' + ma_chinh + ' hấp dẫn hơn.' if isinstance(pe_main, (int, float)) and isinstance(pe_ss, (int, float)) and pe_main < pe_ss else 'Thị trường kỳ vọng cao hơn vào đối thủ.'}")
+        else:
+            # NHẬN ĐỊNH ĐỘC LẬP KHI SEARCH 1 MÃ
+            st.subheader(f"🧐 Nhận định chuyên sâu: {ma_chinh}")
+            c_ind1, c_ind2 = st.columns(2)
+            with c_ind1:
+                trend = "TĂNG" if g_ht > ma_ht else "GIẢM"
+                status = "QUÁ MUA (Rủi ro)" if rsi_ht > 70 else "QUÁ BÁN (Cơ hội)" if rsi_ht < 30 else "ỔN ĐỊNH"
+                st.info(f"📊 **Xu hướng hiện tại:**\n- Giá đang trong xu hướng {trend} ngắn hạn so với đường MA20.\n- Trạng thái kỹ thuật: **{status}** (RSI: {rsi_ht:.2f}).")
+            with c_ind2:
+                pe_val = stock_obj.info.get('trailingPE', 'N/A')
+                st.success(f"💎 **Sức khỏe tài chính:**\n- Chỉ số P/E hiện tại: {pe_val}.\n- Khuyến nghị: {'Cần theo dõi vùng cản phía trên' if trend == 'TĂNG' else 'Quan sát vùng hỗ trợ quanh ' + str(round(lw_ht, 0)) + ' VNĐ'}.")
 
         # --- THÔNG TIN CÔNG TY & DOANH THU ---
         st.markdown("---")
@@ -177,10 +179,9 @@ if ma_chinh:
                 info = stock_obj.info
                 st.write(f"**Tên:** {info.get('longName', ma_chinh)}")
                 st.write(f"**Ngành:** {info.get('industry', 'Đa ngành')}")
-                with st.expander("📖 Xem tóm tắt bằng tiếng Việt"):
-                    st.write(VI_DESCRIPTIONS.get(ma_chinh, "Mô tả chi tiết đang được cập nhật bằng tiếng Việt cho mã này."))
+                with st.expander("📖 Xem tóm tắt tiếng Việt"):
+                    st.write(VI_DESCRIPTIONS.get(ma_chinh, "Mô tả tiếng Việt cho mã này đang được cập nhật."))
             except: st.info("Đang đồng bộ dữ liệu...")
-
         with col_rev:
             st.subheader("💰 Doanh thu 4 năm gần nhất")
             try:
@@ -189,7 +190,6 @@ if ma_chinh:
                     rev = financials.loc['Total Revenue'].head(4)
                     rev_df = pd.DataFrame({'Năm': rev.index.year, 'Doanh thu (Tỷ)': rev.values / 1e9})
                     st.bar_chart(data=rev_df, x='Năm', y='Doanh thu (Tỷ)', color="#26a69a")
-                else: st.info("Chưa có dữ liệu tài chính.")
             except: st.info("Không thể tải biểu đồ doanh thu.")
 
         # --- CHIẾN LƯỢC & CÔNG THỨC ---
