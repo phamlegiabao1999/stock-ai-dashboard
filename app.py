@@ -51,25 +51,21 @@ if ma_final:
     
     if st.sidebar.button("🚀 Bắt đầu phân tích"):
         with st.spinner(f'Đang tải dữ liệu {ma_final}...'):
-            # Tải dữ liệu 1 năm
             data = yf.download(ticker_symbol, period="1y", progress=False)
             
             if not data.empty:
-                # --- 4. TÍNH TOÁN KỸ THUẬT (CODE THUẦN PANDAS) ---
-                # Tính MA20 và Bollinger Bands
+                # --- 4. TÍNH TOÁN KỸ THUẬT ---
                 data['MA20'] = data['Close'].rolling(window=20).mean()
                 data['STD'] = data['Close'].rolling(window=20).std()
                 data['Upper'] = data['MA20'] + (data['STD'] * 2)
                 data['Lower'] = data['MA20'] - (data['STD'] * 2)
                 
-                # Tính RSI (14)
                 delta = data['Close'].diff()
                 gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
                 loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
                 rs = gain / loss
                 data['RSI'] = 100 - (100 / (1 + rs))
 
-                # Lấy các thông số cuối cùng
                 gia_ht = float(data['Close'].iloc[-1])
                 rsi_ht = float(data['RSI'].iloc[-1])
                 ma20_ht = float(data['MA20'].iloc[-1])
@@ -82,60 +78,71 @@ if ma_final:
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Giá hiện tại", f"{gia_ht:,.0f} VNĐ" if "-" not in ma_final else f"${gia_ht:,.2f}")
                 c2.metric("Chỉ số RSI", f"{rsi_ht:.2f}")
-                c3.metric("Xu hướng (MA20)", f"{((gia_ht/ma20_ht)-1)*100:+.2f}%")
+                c3.metric("So với MA20", f"{((gia_ht/ma20_ht)-1)*100:+.2f}%")
 
-                # --- 6. NHẬN ĐỊNH AI & VÙNG MUA ---
-                st.markdown("### 🤖 Nhận định chiến lược & Vùng mua")
+                # --- 6. BIỂU ĐỒ KỸ THUẬT ---
+                fig, ax = plt.subplots(figsize=(14, 6))
+                ax.plot(data.index, data['Close'], label='Giá đóng cửa', color='#1f77b4', linewidth=2)
+                ax.plot(data.index, data['MA20'], label='MA20 (Xu hướng)', color='orange', linestyle='--')
+                ax.fill_between(data.index, data['Lower'], data['Upper'], color='gray', alpha=0.1, label='Dải Bollinger')
                 
-                col_info, col_zone = st.columns([2, 1])
+                # Điểm giá hiện tại
+                ax.scatter(ngay_ht, gia_ht, color='red', s=70, zorder=5)
+                ax.annotate(f"Giá: {gia_ht:,.0f}", (ngay_ht, gia_ht), xytext=(15, 5), textcoords='offset points', 
+                            color='white', weight='bold', bbox=dict(boxstyle='round,pad=0.3', fc='red', ec='none'))
                 
-                with col_info:
-                    if rsi_ht < 35:
-                        st.success(f"✅ **TÍN HIỆU MUA:** RSI thấp ({rsi_ht:.2f}). Giá đang ở vùng quá bán, tiềm năng hồi phục cao.")
-                    elif rsi_ht > 70:
-                        st.error(f"❌ **CẢNH BÁO:** RSI quá cao ({rsi_ht:.2f}). Thị trường đang hưng phấn quá mức, nguy cơ chỉnh.")
-                    elif gia_ht > ma20_ht:
-                        st.info(f"📈 **XU HƯỚNG TĂNG:** Giá nằm trên MA20. Ưu tiên nắm giữ.")
-                    else:
-                        st.warning(f"📉 **THẬN TRỌNG:** Giá nằm dưới MA20. Cần quan sát thêm điểm cân bằng.")
-
-                with col_zone:
-                    # Đề xuất vùng mua dựa trên Lower Band và MA20
-                    st.info(f"📍 **Vùng mua tham khảo:**\n\n **{lower_ht:,.0f} - {ma20_ht:,.0f}**")
-
-                # --- 7. BIỂU ĐỒ KỸ THUẬT (HIỂN THỊ GIÁ TRÊN ĐỒ THỊ) ---
-                st.subheader("📊 Biểu đồ kỹ thuật chi tiết")
-                fig, ax = plt.subplots(figsize=(14, 7))
-                
-                # Vẽ các đường chính
-                ax.plot(data.index, data['Close'], label='Giá đóng cửa', color='#1f77b4', linewidth=2, alpha=0.9)
-                ax.plot(data.index, data['MA20'], label='Đường MA20', color='orange', linestyle='--', linewidth=1.5)
-                
-                # Vẽ vùng Bollinger Bands
-                ax.fill_between(data.index, data['Lower'], data['Upper'], color='gray', alpha=0.1, label='Vùng biến động')
-
-                # HIỂN THỊ GIÁ HIỆN TẠI LÊN BIỂU ĐỒ
-                ax.scatter(ngay_ht, gia_ht, color='red', s=60, zorder=5) # Chấm đỏ tại điểm cuối
-                ax.annotate(f"Hiện tại: {gia_ht:,.0f}", 
-                            xy=(ngay_ht, gia_ht),
-                            xytext=(15, 0), 
-                            textcoords='offset points',
-                            va='center',
-                            color='white',
-                            weight='bold',
-                            bbox=dict(boxstyle='round,pad=0.3', fc='red', ec='none', alpha=0.8))
-
-                ax.set_title(f"Diễn biến giá {ma_final}", fontsize=16)
-                ax.grid(True, alpha=0.3)
-                ax.legend(loc='upper left')
-                
-                # Làm đẹp trục X (ngày tháng)
-                plt.xticks(rotation=0)
-                
+                ax.legend()
                 st.pyplot(fig)
-                
+
+                # --- 7. PHẦN BỔ SUNG DƯỚI BIỂU ĐỒ ---
+                st.markdown("---")
+                col_left, col_right = st.columns(2)
+
+                with col_left:
+                    st.subheader("📚 Giải thích Công thức & Chỉ số")
+                    with st.expander("Xem chi tiết các công thức tính"):
+                        st.markdown(r"""
+                        * **MA20 (Moving Average):** Trung bình giá đóng cửa của 20 ngày gần nhất. 
+                            $$MA = \frac{P_1 + P_2 + ... + P_{20}}{20}$$
+                        * **RSI (Relative Strength Index):** Chỉ số sức mạnh tương đối, đo lường tốc độ thay đổi giá. 
+                            * RSI > 70: Quá mua (Hưng phấn).
+                            * RSI < 30: Quá bán (Sợ hãi).
+                        * **Bollinger Bands:** Dải băng đo biến động. Khi giá chạm dải dưới (**Lower Band**), thường có xu hướng bật lại.
+                        """)
+                    
+                    st.subheader("💡 Nhận định từ AI")
+                    if rsi_ht < 35:
+                        st.success("💎 **CƠ HỘI:** Thị trường đang hoảng loạn, giá đi vào vùng quá bán. Đây thường là vùng đáy ngắn hạn.")
+                    elif rsi_ht > 70:
+                        st.error("🔥 **RỦI RO:** Tâm lý thị trường quá hưng phấn. Tránh mua đuổi (FOMO) tại vùng này.")
+                    elif gia_ht > ma20_ht:
+                        st.info("📈 **XU HƯỚNG:** Cổ phiếu đang trong đà tăng trưởng mạnh mẽ (Up-trend).")
+                    else:
+                        st.warning("📉 **XU HƯỚNG:** Cổ phiếu đang suy yếu (Down-trend). Cần tích lũy thêm.")
+
+                with col_right:
+                    st.subheader("🎯 Khuyến nghị hành động")
+                    
+                    # Tạo bảng khuyến nghị
+                    rec_data = {
+                        "Kịch bản": ["Mua mới", "Đang nắm giữ", "Cắt lỗ"],
+                        "Hành động": [
+                            f"Chờ mua quanh vùng {lower_ht:,.0f} VNĐ",
+                            f"Tiếp tục giữ nếu giá đóng cửa trên {ma20_ht:,.0f}",
+                            f"Bán nếu thủng vùng {lower_ht*0.97:,.0f} (lỗ 3%)"
+                        ]
+                    }
+                    st.table(pd.DataFrame(rec_data))
+
+                    st.subheader("🛡️ Quản trị rủi ro")
+                    st.write("""
+                    1. **Nguyên tắc 2%:** Không để thua lỗ quá 2% tổng tài sản trên mỗi lệnh giao dịch.
+                    2. **Chia vốn:** Không bao giờ mua hết 100% vốn tại một mức giá duy nhất.
+                    3. **Kỷ luật:** Luôn đặt lệnh dừng lỗ ngay khi vừa khớp lệnh mua.
+                    """)
+
             else:
-                st.error("Không tìm thấy dữ liệu! Hãy kiểm tra lại mã chứng khoán.")
+                st.error("Không tìm thấy dữ liệu!")
 
 st.sidebar.markdown("---")
 st.sidebar.write("💻 Hệ thống hỗ trợ quyết định - Bảo Minh MBA")
