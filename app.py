@@ -19,14 +19,12 @@ if "logged_in" not in st.session_state:
 # --- MÀN HÌNH ĐĂNG NHẬP ---
 if not st.session_state.logged_in:
     st.title("🔐 Hệ thống Phân tích Bảo Minh MBA")
-    # Hiển thị icon khóa lớn ở giữa
-    st.markdown("<h1 style='text-align: center; font-size: 100px;'>🔒</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("---")
         with st.form("login_form"):
-            user = st.text_input("👤 Tài khoản:")
-            pwd = st.text_input("🔑 Mật khẩu:", type="password")
+            user = st.text_input("👤 Tài khoản (baominh):")
+            pwd = st.text_input("🔑 Mật khẩu (mba2026):", type="password")
             submit = st.form_submit_button("🚀 ĐĂNG NHẬP HỆ THỐNG", use_container_width=True)
             if submit:
                 if user == "baominh" and pwd == "mba2026":
@@ -37,9 +35,8 @@ if not st.session_state.logged_in:
         st.markdown("---")
     st.stop()
 
-# --- 2. HIỆU ỨNG LOADING: GIF CON TRÂU NÂNG TẠ (10 GIÂY) ---
+# --- 2. HIỆU ỨNG LOADING (10 GIÂY VỚI ẢNH GIF CON TRÂU) ---
 if "first_load" not in st.session_state:
-    # Danh sách các mẹo đầu tư (Investment Hints)
     investment_hints = [
         "💡 RSI < 30 thường là vùng quá bán, nhưng hãy đợi tín hiệu nến đảo chiều để mua.",
         "📊 MA20 là 'đường ranh giới' ngắn hạn. Giá nằm trên MA20 thể hiện xu hướng tăng.",
@@ -50,23 +47,20 @@ if "first_load" not in st.session_state:
         "📈 Bollinger Bands co thắt thường dự báo một biến động mạnh sắp diễn ra."
     ]
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
         
-        # ĐÂY LÀ PHẦN PHÙ PHÉP: Hiển thị GIF con trâu nâng tạ từ link ổn định
-        # Con trâu này màu xanh, đang đẩy tạ đơn rất khỏe
+        # HIỂN THỊ ẢNH GIF CON TRÂU TẬP TẠ (Link ổn định 100%)
         st.image("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM2Z4MXRmaGxsOHZ4OHY5amp4bWgxYXlxMXRmaGxsOHZ4OHY5amp4bSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw,L0H7L6pW8X8o8k8U8S/giphy.gif", use_container_width=True)
         
-        # Khu vực hiển thị Mẹo và Thanh tiến trình
         hint_placeholder = st.empty()
         p_bar = st.progress(0)
         
-        # Chạy trong 10 giây (100 bước * 0.1s)
+        # Chạy trong đúng 10 giây (100 bước * 0.1s)
         for p in range(101):
             if p % 25 == 0: # Cứ mỗi 2.5 giây đổi một mẹo mới
                 hint_placeholder.info(random.choice(investment_hints))
-            
             time.sleep(0.1) 
             p_bar.progress(p)
             
@@ -105,51 +99,44 @@ stock_dict = {
     "CHỨNG KHOÁN": {"SSI": "SSI", "VND": "VNDIRECT", "VCI": "Vietcap", "HCM": "HSC", "VIX": "VIX"},
     "DẦU KHÍ": {"GAS": "PV GAS", "PVD": "PV Drilling", "PVS": "PTSC", "POW": "PV Power", "PLX": "Petrolimex"}
 }
-all_options = ["Tự nhập mã khác..."]
-for group, stocks in stock_dict.items():
-    for ticker, name in stocks.items():
-        all_options.append(f"{ticker} - {name} ({group})")
+all_options = [f"{t} - {n} ({g})" for g, s in stock_dict.items() for t, n in s.items()]
 
-# --- 5. SIDEBAR (AUTO-UPDATE) ---
+# --- 5. SIDEBAR ---
 st.sidebar.title("Chào Bảo Minh MBA!")
-choice = st.sidebar.selectbox("Chọn hoặc tìm mã:", options=all_options)
-
-if choice == "Tự nhập mã khác...":
-    ma_chinh = st.sidebar.text_input("Nhập mã (VD: VJC):", value="MWG").upper().strip()
-else:
-    ma_chinh = choice.split(" - ")[0]
+ma_chinh_choice = st.sidebar.selectbox("Chọn mã phân tích:", options=all_options)
+ma_chinh = ma_chinh_choice.split(" - ")[0]
 
 enable_compare = st.sidebar.checkbox("⚖️ So sánh đối thủ")
 ma_ss = ""
 if enable_compare:
-    comp_choice = st.sidebar.selectbox("Đối thủ:", options=[x for x in all_options if x != choice])
-    ma_ss = st.sidebar.text_input("Mã đối thủ:", value="MSN").upper().strip() if comp_choice == "Tự nhập mã khác..." else comp_choice.split(" - ")[0]
+    comp_choice = st.sidebar.selectbox("Chọn đối thủ:", options=[x for x in all_options if x != ma_chinh_choice])
+    ma_ss = comp_choice.split(" - ")[0]
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🔴 Đăng xuất"):
     st.session_state.logged_in = False; st.session_state.first_load = False; st.rerun()
 
-# --- 6. HEADER ---
+# --- 6. HEADER (GIỜ VN & TIN TỨC) ---
 tz = pytz.timezone('Asia/Ho_Chi_Minh')
 now = datetime.now(tz).strftime("%d/%m/%Y - %H:%M:%S")
 h_col1, h_col2 = st.columns([1, 2])
 with h_col1:
     st.markdown(f"📍 **Máy chủ:** `Hồ Chí Minh` | 📅 `{now}`")
 
-# --- 7. HIỂN THỊ VÀO APP ---
+with h_col2:
+    news = get_news(ma_chinh)
+    if news:
+        for n in news: st.markdown(f"● <a href='{n['link']}' target='_blank' style='color:#4CAF50;text-decoration:none;'>{n['title'][:65]}...</a>", unsafe_allow_html=True)
+
+# --- 7. HIỂN THỊ DASHBOARD ---
 if ma_chinh:
     df = get_clean_data(ma_chinh)
     if df is not None:
-        with h_col2:
-            news = get_news(ma_chinh)
-            if news:
-                for n in news: st.markdown(f"● <a href='{n['link']}' target='_blank' style='color:#4CAF50;text-decoration:none;'>{n['title'][:65]}...</a>", unsafe_allow_html=True)
-
         st.title(f"📊 Dashboard Phân Tích: {ma_chinh}")
         g_ht = float(df['Close'].iloc[-1]); rsi_ht = float(df['RSI'].iloc[-1]); ma_ht = float(df['MA20'].iloc[-1]); lw_ht = float(df['Lower'].iloc[-1])
         
         m1, m2, m3 = st.columns(3)
-        m1.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", f"{df['Close'].diff().iloc[-1]:,.0f}")
+        m1.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", f"{df['Close'].diff().iloc[-1]:,.0f} VNĐ")
         m2.metric("RSI (14)", f"{rsi_ht:.2f}")
         m3.metric("So với MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
 
@@ -185,5 +172,4 @@ if ma_chinh:
         st.subheader("📐 Công thức & Lý thuyết")
         st.latex(r"RSI = 100 - \frac{100}{1 + RS}")
 
-st.sidebar.markdown("---")
 st.sidebar.write("💻 **Bảo Minh MBA System**")
