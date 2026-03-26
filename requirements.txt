@@ -3,4 +3,3 @@ yfinance
 matplotlib
 pandas
 numpy
-google-genai
