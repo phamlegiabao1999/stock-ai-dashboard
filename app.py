@@ -158,7 +158,7 @@ if btn_analyze or st.session_state.data is not None:
             with st.chat_message("assistant"):
                 with st.spinner("AI đang trả lời..."):
                     try:
-                        model = genai.GenerativeModel("gemini-1.5-flash")
+                        model = genai.GenerativeModel(model_name="models/gemini-pro")
                         ctx = f"Mã {st.session_state.ma_current}, Giá {gia_ht}, RSI {rsi_ht}, MA20 {ma20_ht}. Trả lời ngắn."
                         resp = model.generate_content([ctx, prompt])
                         st.markdown(resp.text)
