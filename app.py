@@ -3,29 +3,21 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from streamlit_lottie import st_lottie
-import requests
 import time
 
-# --- 1. CẤU HÌNH & BẢO MẬT ---
+# --- 1. CẤU HÌNH & BẢO MẬT (LOGIN) ---
 st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
 
-# Hàm load hiệu ứng Lottie
-def load_lottieurl(url):
-    r = requests.get(url)
-    if r.status_code != 200: return None
-    return r.json()
-
-# Kiểm tra đăng nhập
+# Khởi tạo trạng thái đăng nhập
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-def login():
-    st.sidebar.title("🔐 Đăng nhập hệ thống")
-    user = st.sidebar.text_input("Tài khoản:")
+def login_screen():
+    st.sidebar.title("🔐 Hệ thống Bảo Minh MBA")
+    user = st.sidebar.text_input("Tài khoản (Tên bạn viết liền):")
     pwd = st.sidebar.text_input("Mật khẩu:", type="password")
     if st.sidebar.button("Đăng nhập"):
-        # Bạn có thể đổi tài khoản/mật khẩu ở đây
+        # Tài khoản: baominh | Mật khẩu: mba2026
         if user == "baominh" and pwd == "mba2026":
             st.session_state.logged_in = True
             st.sidebar.success("Đăng nhập thành công!")
@@ -34,38 +26,41 @@ def login():
             st.sidebar.error("Sai tài khoản hoặc mật khẩu!")
 
 if not st.session_state.logged_in:
-    login()
-    st.info("Vui lòng đăng nhập ở thanh Sidebar bên trái để sử dụng hệ thống.")
-    # Hiệu ứng chờ đăng nhập
-    lottie_stock = load_lottieurl("https://assets5.lottiefiles.com/packages/lf20_06spybuy.json")
-    st_lottie(lottie_stock, height=300)
+    st.title("📈 Hệ thống Phân tích Chứng khoán Chuyên sâu")
+    st.info("Vui lòng đăng nhập tại thanh Sidebar bên trái để bắt đầu.")
+    # Hiệu ứng chữ chạy thay cho Lottie để tránh lỗi 404
+    st.write("---")
+    st.subheader("Dành cho quản lý danh mục và ra quyết định đầu tư.")
     st.stop()
 
-# --- HIỆU ỨNG MỞ APP KHI ĐÃ LOGGED IN ---
+# --- 2. HIỆU ỨNG MỞ APP (KHI ĐÃ ĐĂNG NHẬP) ---
 if "first_load" not in st.session_state:
-    lottie_loading = load_lottieurl("https://assets1.lottiefiles.com/packages/lf20_p8bfn5to.json")
-    st_lottie(lottie_loading, height=200)
-    st.write("🚀 Đang khởi tạo hệ thống phân tích...")
-    time.sleep(2)
+    with st.empty():
+        for i in range(101):
+            st.write(f"🚀 Đang quét dữ liệu thị trường... {i}%")
+            time.sleep(0.01)
+        st.write("✅ Hệ thống đã sẵn sàng!")
     st.session_state.first_load = True
+    time.sleep(1)
     st.rerun()
 
-# --- 2. DANH MỤC MÃ ---
+# --- 3. DANH MỤC MÃ NIÊM YẾT ---
 stock_dict = {
     "BÁN LẺ & FMCG": {"MWG": "MWG", "MSN": "Masan", "VNM": "Vinamilk", "PNJ": "PNJ"},
-    "THÉP & CÔNG NGHỆ": {"HPG": "Hòa Phát", "FPT": "FPT", "HSG": "Hoa Sen"},
-    "NGÂN HÀNG": {"VCB": "Vietcombank", "TCB": "Techcombank", "MBB": "MB Bank"}
+    "THÉP & CÔNG NGHỆ": {"HPG": "Hòa Phát", "FPT": "FPT", "HSG": "Hoa Sen", "DGC": "Đức Giang"},
+    "NGÂN HÀNG": {"VCB": "Vietcombank", "TCB": "Techcombank", "MBB": "MB Bank", "STB": "Sacombank"}
 }
 
 flat_list = []
 for group, stocks in stock_dict.items():
     for ticker, name in stocks.items():
-        flat_list.append(f"{ticker} - {name}")
+        flat_list.append(f"{ticker} - {name} ({group})")
 
-# --- 3. SIDEBAR PHÂN TÍCH ---
+# --- 4. SIDEBAR ĐIỀU KHIỂN ---
 st.sidebar.success(f"Chào Bảo Minh MBA!")
 if st.sidebar.button("Đăng xuất"):
     st.session_state.logged_in = False
+    st.session_state.first_load = False
     st.rerun()
 
 st.sidebar.header("🔍 Phân tích & Đối chiếu")
@@ -80,18 +75,21 @@ if enable_compare:
 
 btn_analyze = st.sidebar.button("🚀 Thực hiện phân tích")
 
-# --- 4. HÀM DỮ LIỆU ---
+# --- 5. HÀM XỬ LÝ DỮ LIỆU ---
 def get_clean_data(ticker):
     symbol = ticker + ".VN" if "-" not in ticker and "." not in ticker else ticker
     df = yf.download(symbol, period="1y", progress=False)
     if df is not None and not df.empty:
+        # Xử lý lỗi Multi-index của yfinance
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         df = df.copy()
+        # Chỉ số kỹ thuật
         df['MA20'] = df['Close'].rolling(window=20).mean()
         df['STD'] = df['Close'].rolling(window=20).std()
         df['Upper'] = df['MA20'] + (df['STD'] * 2)
         df['Lower'] = df['MA20'] - (df['STD'] * 2)
+        # RSI
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -99,16 +97,17 @@ def get_clean_data(ticker):
         return df
     return None
 
-# --- 5. HIỂN THỊ CHÍNH ---
+# --- 6. HIỂN THỊ KẾT QUẢ ---
 if btn_analyze or "main_df" in st.session_state:
     if btn_analyze:
-        st.session_state.main_df = get_clean_data(ma_chinh)
-        st.session_state.name_chinh = ma_chinh
-        if enable_compare and ma_ss:
-            st.session_state.compare_df = get_clean_data(ma_ss)
-            st.session_state.name_ss = ma_ss
-        else:
-            st.session_state.compare_df = None
+        with st.spinner('Đang tải dữ liệu...'):
+            st.session_state.main_df = get_clean_data(ma_chinh)
+            st.session_state.name_chinh = ma_chinh
+            if enable_compare and ma_ss:
+                st.session_state.compare_df = get_clean_data(ma_ss)
+                st.session_state.name_ss = ma_ss
+            else:
+                st.session_state.compare_df = None
 
     df = st.session_state.main_df
     if df is not None:
@@ -118,38 +117,39 @@ if btn_analyze or "main_df" in st.session_state:
         
         st.title(f"📊 Dashboard: {st.session_state.name_chinh}")
 
-        # --- CARDS ---
-        c_price, c_rsi, c_ma = st.columns(3)
-        c_price.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", delta=f"{df['Close'].diff().iloc[-1]:,.0f}")
-        c_rsi.metric("Chỉ số RSI (14)", f"{rsi_ht:.2f}")
-        c_ma.metric("So với MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
+        # --- 3 THẺ CHỈ SỐ NHANH ---
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", delta=f"{df['Close'].diff().iloc[-1]:,.0f}")
+        c2.metric("Chỉ số RSI (14)", f"{rsi_ht:.2f}")
+        c3.metric("Vị thế so với MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
 
         # --- BIỂU ĐỒ NẾN ---
         fig = go.Figure(data=[go.Candlestick(
             x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-            name='Giá nến', increasing_line_color='#26a69a', decreasing_line_color='#ef5350'
+            name='Nến Nhật', increasing_line_color='#26a69a', decreasing_line_color='#ef5350'
         )])
         fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], line=dict(color='#ff9800', width=1.5), name='MA20'))
-        fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=450)
+        fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=450, margin=dict(l=10, r=10, t=10, b=10))
         st.plotly_chart(fig, use_container_width=True)
 
         # --- CHÚ THÍCH RSI ---
-        with st.expander("❓ RSI là gì? (Chú thích cho MBA)"):
+        with st.expander("❓ RSI là gì? (Kiến thức MBA)"):
             st.write("""
-            **Relative Strength Index (RSI)** là chỉ số sức mạnh tương đối, dùng để đo lường tốc độ và sự thay đổi của biến động giá:
-            - **RSI > 70:** Thị trường 'Quá mua' (Overbought) -> Rủi ro đảo chiều giảm giá cao.
-            - **RSI < 30:** Thị trường 'Quá bán' (Oversold) -> Cơ hội cổ phiếu đang rẻ, dễ bật tăng lại.
-            - **RSI quanh 50:** Trạng thái cân bằng, xu hướng không rõ ràng.
+            **Relative Strength Index (RSI)** là chỉ số đo lường quán tính thay đổi giá:
+            - **Dưới 30 (Quá bán):** Giá đang ở vùng chiết khấu sâu, cơ hội MUA.
+            - **Trên 70 (Quá mua):** Giá đã tăng quá nóng, rủi ro điều chỉnh cao, nên BÁN.
+            - **Mức 50:** Vùng trung tính của thị trường.
             """)
 
         # --- LỜI ĐỀ NGHỊ ---
-        st.markdown("### 💡 Lời đề nghị hành động")
-        if rsi_ht < 35: st.success(f"💎 **MUA:** RSI ({rsi_ht:.2f}) Quá bán. Vùng giá hấp dẫn.")
-        elif rsi_ht > 70: st.error(f"🔥 **BÁN:** RSI ({rsi_ht:.2f}) Quá mua. Nên chốt lời.")
-        else: st.info(f"📈 **THEO DÕI:** RSI ({rsi_ht:.2f}) Cân bằng.")
+        st.markdown("### 💡 Khuyến nghị hành động")
+        if rsi_ht < 35: st.success(f"💎 **MUA:** RSI {rsi_ht:.2f} (Quá bán) - Vùng gom hàng an toàn.")
+        elif rsi_ht > 70: st.error(f"🔥 **BÁN:** RSI {rsi_ht:.2f} (Quá mua) - Nên chốt lời bảo vệ thành quả.")
+        else: st.info(f"📈 **THEO DÕI:** RSI {rsi_ht:.2f} (Cân bằng) - Tiếp tục nắm giữ.")
 
-        # --- SO SÁNH ---
+        # --- SO SÁNH (%) ---
         if st.session_state.get('compare_df') is not None:
+            st.markdown("---")
             df_ss = st.session_state.compare_df
             combined = pd.concat([df['Close'], df_ss['Close']], axis=1).dropna()
             combined.columns = ['Chinh', 'SS']
@@ -157,17 +157,17 @@ if btn_analyze or "main_df" in st.session_state:
                 st.session_state.name_chinh: (combined['Chinh'] / combined['Chinh'].iloc[0] - 1) * 100,
                 st.session_state.name_ss: (combined['SS'] / combined['SS'].iloc[0] - 1) * 100
             }, index=combined.index)
-            st.subheader(f"⚔️ So sánh: {st.session_state.name_chinh} vs {st.session_state.name_ss}")
+            st.subheader(f"⚔️ So sánh hiệu suất: {st.session_state.name_chinh} vs {st.session_state.name_ss}")
             st.line_chart(perf)
 
         # --- LỊCH SỬ & CHIẾN LƯỢC ---
         st.markdown("---")
-        col1, col2 = st.columns(2)
-        with col1:
+        col_l, col_r = st.columns(2)
+        with col_l:
             st.subheader("📋 Lịch sử & Công thức")
             st.dataframe(df[['Close', 'RSI']].tail(5), use_container_width=True)
             st.latex(r"RSI = 100 - \frac{100}{1 + RS}")
-        with col2:
+        with col_r:
             st.subheader("🎯 Chiến lược Giao dịch")
             lw_ht = float(df['Lower'].iloc[-1])
             st.table(pd.DataFrame({
