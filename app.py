@@ -172,4 +172,10 @@ if ma_chinh:
             st.dataframe(df[['Close', 'RSI']].tail(5), use_container_width=True)
         with col_m:
             st.subheader("🎯 Chiến lược MBA")
-            st.table(pd.DataFrame({"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}",
+            st.table(pd.DataFrame({"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]}))
+        
+        st.markdown("---")
+        st.subheader("📐 Công thức & Lý thuyết")
+        st.latex(r"RSI = 100 - \frac{100}{1 + RS}")
+
+st.sidebar.write("💻 **Bảo Minh MBA System**")
