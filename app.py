@@ -26,7 +26,7 @@ for group, stocks in stock_dict.items():
     for ticker, name in stocks.items():
         flat_list.append(f"{ticker} - {name} ({group})")
 
-# --- 2. KHỞI TẠO BỘ NHỚ (QUAN TRỌNG) ---
+# --- 2. KHỞI TẠO BỘ NHỚ ---
 if "data" not in st.session_state: st.session_state.data = None
 if "ma_current" not in st.session_state: st.session_state.ma_current = ""
 if "messages" not in st.session_state: st.session_state.messages = []
@@ -97,7 +97,7 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
                 "Giá": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]
             }))
 
-        # --- 5. CHAT AI (CÁCH GỌI MỚI TRIỆT ĐỂ LỖI 404) ---
+        # --- 5. CHAT AI (SỬA LỖI 404 TRIỆT ĐỂ) ---
         st.markdown("---")
         st.subheader(f"💬 Chat AI về {st.session_state.ma_current}")
         for msg in st.session_state.messages:
@@ -109,15 +109,23 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
 
             with st.chat_message("assistant"):
                 try:
-                    # KHÔNG dùng models/ phía trước. Chỉ dùng tên model.
+                    # Gọi model flash (không có tiền tố models/)
                     response = client.models.generate_content(
                         model="gemini-1.5-flash",
-                        contents=f"Dữ liệu mã {st.session_state.ma_current}: Giá {g_ht:,.0f}, RSI {rsi_ht:.2f}. Câu hỏi: {prompt}. Hãy trả lời ngắn gọn."
+                        contents=f"Mã chứng khoán {st.session_state.ma_current}, Giá {g_ht:,.0f}, RSI {rsi_ht:.2f}. {prompt}"
                     )
                     st.markdown(response.text)
                     st.session_state.messages.append({"role": "assistant", "content": response.text})
                 except Exception as e:
-                    # Nếu vẫn lỗi 404, thử gỡ model gemini-pro (fallback)
-                    st.error(f"Lỗi AI: {e}")
+                    # PHƯƠNG ÁN DỰ PHÒNG: Thử dùng model gemini-1.5-pro nếu flash lỗi
+                    try:
+                        response = client.models.generate_content(
+                            model="gemini-1.5-pro",
+                            contents=f"Dữ liệu mã {st.session_state.ma_current}: {prompt}"
+                        )
+                        st.markdown(response.text)
+                        st.session_state.messages.append({"role": "assistant", "content": response.text})
+                    except Exception as e2:
+                        st.error(f"Lỗi AI: {e2}")
 
 st.sidebar.write("💻 Bảo Minh MBA")
