@@ -10,6 +10,7 @@ from streamlit_lottie import st_lottie
 from datetime import datetime
 import pytz
 import feedparser
+import random
 
 # --- 1. CẤU HÌNH ---
 st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
@@ -17,18 +18,16 @@ st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wi
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# --- MÀN HÌNH ĐĂNG NHẬP (HỖ TRỢ PHÍM ENTER) ---
+# --- MÀN HÌNH ĐĂNG NHẬP ---
 if not st.session_state.logged_in:
     st.title("🔐 Hệ thống Phân tích Bảo Minh MBA")
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("---")
-        # Dùng form để hỗ trợ phím Enter tự động submit
         with st.form("login_form"):
-            user = st.text_input("👤 Tài khoản:")
-            pwd = st.text_input("🔑 Mật khẩu:", type="password")
+            user = st.text_input("👤 Tài khoản (baominh):")
+            pwd = st.text_input("🔑 Mật khẩu (mba2026):", type="password")
             submit = st.form_submit_button("🚀 ĐĂNG NHẬP HỆ THỐNG", use_container_width=True)
-            
             if submit:
                 if user == "baominh" and pwd == "mba2026":
                     st.session_state.logged_in = True
@@ -38,18 +37,39 @@ if not st.session_state.logged_in:
         st.markdown("---")
     st.stop()
 
-# --- 2. HIỆU ỨNG LOADING ---
+# --- 2. HIỆU ỨNG LOADING + INVESTMENT HINTS (10 GIÂY) ---
 if "first_load" not in st.session_state:
     bull_gym_json_raw = """{"v": "5.7.1", "fr": 30, "ip": 0, "op": 60, "w": 500, "h": 500, "nm": "Gym Bull", "layers": [{ "ind": 1, "ty": 4, "nm": "Dumbbell", "ks": { "r": { "k": [{ "t": 0, "s": [0] }, { "t": 30, "s": [-40] }, { "t": 60, "s": [0] }] }, "p": { "k": [250, 200] } }, "shapes": [{ "ty": "gr", "it": [{ "ty": "st", "c": { "k": [0.2, 0.2, 0.2] }, "w": { "k": 20 } }, { "ty": "sh", "ks": { "k": { "v": [[-100, 0], [100, 0]] } } }] }] }, { "ind": 2, "ty": 4, "nm": "Bull", "ks": { "p": { "k": [250, 350] } }, "shapes": [{ "ty": "gr", "it": [{ "ty": "fl", "c": { "k": [0.6, 0.4, 0.2] } }, { "ty": "sh", "ks": { "k": { "v": [[0, -80], [60, 0], [0, 80], [-60, 0]], "c": true } } }] }] }]}"""
     bull_data = json.loads(bull_gym_json_raw)
+    
+    # Danh sách các mẹo đầu tư (MBA Hints)
+    investment_hints = [
+        "💡 RSI < 30 thường là vùng quá bán, nhưng hãy đợi tín hiệu nến đảo chiều để mua.",
+        "📊 MA20 là 'đường ranh giới' ngắn hạn. Giá nằm trên MA20 thể hiện xu hướng tăng.",
+        "🏗️ Đừng bao giờ bỏ trứng vào một giỏ. Hãy đa dạng hóa danh mục ngành nghề.",
+        "📉 Cắt lỗ (Stop Loss) ở mức 5-7% là nguyên tắc vàng để bảo vệ vốn.",
+        "🏢 Hãy đầu tư vào doanh nghiệp bạn hiểu rõ mô hình kinh doanh của họ.",
+        "🚀 Trong đầu tư chứng khoán, kiên nhẫn đôi khi mang lại lợi nhuận cao hơn kỹ năng.",
+        "📈 Bollinger Bands co thắt thường dự báo một biến động mạnh sắp diễn ra."
+    ]
+
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
         st_lottie(bull_data, height=250)
+        
+        # Khu vực hiển thị Mẹo
+        hint_placeholder = st.empty()
         p_bar = st.progress(0)
-        for p in range(100):
-            time.sleep(0.01)
-            p_bar.progress(p + 1)
+        
+        # Chạy trong 10 giây (100 bước * 0.1s)
+        for p in range(101):
+            if p % 25 == 0: # Cứ mỗi 2.5 giây đổi một mẹo mới
+                hint_placeholder.info(random.choice(investment_hints))
+            
+            time.sleep(0.1) 
+            p_bar.progress(p)
+            
     st.session_state.first_load = True
     st.rerun()
 
@@ -94,7 +114,6 @@ for group, stocks in stock_dict.items():
 st.sidebar.title("Chào Bảo Minh MBA!")
 choice = st.sidebar.selectbox("Chọn hoặc tìm mã:", options=all_options)
 
-# Tự động lấy mã chính không cần nút bấm
 if choice == "Tự nhập mã khác...":
     ma_chinh = st.sidebar.text_input("Nhập mã (VD: VJC):", value="MWG").upper().strip()
 else:
@@ -106,7 +125,6 @@ if enable_compare:
     comp_choice = st.sidebar.selectbox("Đối thủ:", options=[x for x in all_options if x != choice])
     ma_ss = st.sidebar.text_input("Mã đối thủ:", value="MSN").upper().strip() if comp_choice == "Tự nhập mã khác..." else comp_choice.split(" - ")[0]
 
-# Nút Đăng xuất
 st.sidebar.markdown("---")
 if st.sidebar.button("🔴 Đăng xuất"):
     st.session_state.logged_in = False; st.session_state.first_load = False; st.rerun()
@@ -118,11 +136,9 @@ h_col1, h_col2 = st.columns([1, 2])
 with h_col1:
     st.markdown(f"📍 **Máy chủ:** `Hồ Chí Minh` | 📅 `{now}`")
 
-# --- 7. HIỂN THỊ (AUTO-FETCH DỮ LIỆU) ---
+# --- 7. HIỂN THỊ VÀO APP ---
 if ma_chinh:
-    # Tự động tải dữ liệu khi mã thay đổi (không cần nút bấm)
     df = get_clean_data(ma_chinh)
-    
     if df is not None:
         with h_col2:
             news = get_news(ma_chinh)
@@ -132,25 +148,21 @@ if ma_chinh:
         st.title(f"📊 Dashboard Phân Tích: {ma_chinh}")
         g_ht = float(df['Close'].iloc[-1]); rsi_ht = float(df['RSI'].iloc[-1]); ma_ht = float(df['MA20'].iloc[-1]); lw_ht = float(df['Lower'].iloc[-1])
         
-        # Metrics
         m1, m2, m3 = st.columns(3)
         m1.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", f"{df['Close'].diff().iloc[-1]:,.0f}")
         m2.metric("RSI (14)", f"{rsi_ht:.2f}")
         m3.metric("So với MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
 
-        # Chart
-        fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Nến', increasing_line_color='#26a69a', decreasing_line_color='#ef5350')])
+        fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Nến Nhật', increasing_line_color='#26a69a', decreasing_line_color='#ef5350')])
         fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], line=dict(color='#ff9800', width=1.5), name='MA20'))
         fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=450, margin=dict(l=10, r=10, t=10, b=10))
         st.plotly_chart(fig, use_container_width=True)
 
-        # LỜI ĐỀ NGHỊ
         st.markdown(f"### 💡 Lời đề nghị cho {ma_chinh}")
         if rsi_ht < 35: st.success(f"💎 **MUA:** RSI {rsi_ht:.2f} (Quá bán).")
         elif rsi_ht > 70: st.error(f"🔥 **BÁN:** RSI {rsi_ht:.2f} (Quá mua).")
         else: st.info(f"📈 **THEO DÕI:** RSI {rsi_ht:.2f} (Cân bằng).")
 
-        # SO SÁNH
         if enable_compare and ma_ss:
             df_s = get_clean_data(ma_ss)
             if df_s is not None:
@@ -160,7 +172,6 @@ if ma_chinh:
                 st.subheader(f"⚔️ So sánh % tăng trưởng: {ma_chinh} vs {ma_ss}")
                 st.line_chart(perf)
 
-        # LỊCH SỬ & CHIẾN LƯỢC (Giữ nguyên các bảng biểu Bảo Minh yêu cầu)
         st.markdown("---")
         col_h, col_m = st.columns(2)
         with col_h:
