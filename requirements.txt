@@ -1,5 +1,6 @@
-streamlit
+pandas-ta
+ccxt
 yfinance
+streamlit
 matplotlib
 pandas
-ccxt
