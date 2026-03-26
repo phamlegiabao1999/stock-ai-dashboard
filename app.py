@@ -12,6 +12,14 @@ import random
 # --- 1. CẤU HÌNH ---
 st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
 
+# THÊM DUY NHẤT: CSS ĐỂ HỖ TRỢ ZOOM TRÊN SAFARI/IPHONE
+st.markdown("""
+    <style>
+    .stPlotlyChart { touch-action: pan-y; }
+    .js-plotly-plot .plotly .modebar { left: 50% !important; transform: translateX(-50%) !important; top: 0px !important; }
+    </style>
+""", unsafe_allow_html=True)
+
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
@@ -23,11 +31,11 @@ if not st.session_state.logged_in:
     with col2:
         st.markdown("---")
         with st.form("login_form"):
-            user = st.text_input("👤 Tài khoản:")
-            pwd = st.text_input("🔑 Mật khẩu:", type="password")
+            user = st.text_input("👤 Tài khoản (baominh):")
+            pwd = st.text_input("🔑 Mật khẩu (mba2026):", type="password")
             submit = st.form_submit_button("🚀 ĐĂNG NHẬP HỆ THỐNG", use_container_width=True)
             if submit:
-                if user == "baominh" and pwd == "2026":
+                if user == "baominh" and pwd == "mba2026":
                     st.session_state.logged_in = True
                     st.rerun()
                 else:
@@ -130,12 +138,9 @@ with h_col2:
 if ma_chinh:
     df, stock_obj = get_clean_data(ma_chinh)
     if df is not None:
-        g_ht = float(df['Close'].iloc[-1])
-        rsi_ht = float(df['RSI'].iloc[-1])
-        ma_ht = float(df['MA20'].iloc[-1])
-        lw_ht = float(df['Lower'].iloc[-1])
-        atr_ht = float(df['ATR'].iloc[-1])
+        g_ht = float(df['Close'].iloc[-1]); rsi_ht = float(df['RSI'].iloc[-1]); ma_ht = float(df['MA20'].iloc[-1]); lw_ht = float(df['Lower'].iloc[-1]); atr_ht = float(df['ATR'].iloc[-1])
 
+        # CẢNH BÁO MÀU SẮC
         if rsi_ht > 70: bg_color = "#feeceb"; txt_color = "#ef5350"; label = "QUÁ MUA - RỦI RO"
         elif rsi_ht < 35: bg_color = "#e8f5e9"; txt_color = "#2e7d32"; label = "VÙNG MUA AN TOÀN"
         else: bg_color = "#f0f2f6"; txt_color = "#31333f"; label = "TRẠNG THÁI CÂN BẰNG"
@@ -149,30 +154,14 @@ if ma_chinh:
         m1.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", f"{df['Close'].diff().iloc[-1]:,.0f} VNĐ")
         m2.metric("RSI (14)", f"{rsi_ht:.2f}")
         m3.metric("Sức mạnh vs MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
-        m4.metric("Độ biến động (ATR)", f"{atr_ht:,.0f} VNĐ")
+        m4.metric("Biến động ATR", f"{atr_ht:,.0f} VNĐ")
 
-        # --- NÂNG CẤP ZOOM BIỂU ĐỒ NẾN ---
+        # NÂNG CẤP ZOOM: scrollZoom=True cho Edge/Laptop và touch-action cho Safari
         fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Nến Nhật', increasing_line_color='#26a69a', decreasing_line_color='#ef5350')])
         fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], line=dict(color='#ff9800', width=1.5), name='MA20'))
-        
-        fig.update_layout(
-            template="plotly_white", 
-            xaxis_rangeslider_visible=False, 
-            height=500, 
-            margin=dict(l=10, r=10, t=10, b=10),
-            dragmode='zoom', # Chế độ kéo để zoom mặc định
-            hovermode='x unified'
-        )
-        
-        # Cấu hình config để hỗ trợ Super Zoom (Lăn chuột + Touch)
-        st.plotly_chart(fig, use_container_width=True, config={
-            'scrollZoom': True,           # Cho phép lăn chuột để zoom
-            'displayModeBar': True,       # Hiện thanh công cụ để chọn chế độ Pan/Zoom
-            'modeBarButtonsToAdd': ['drawline', 'drawopenpath', 'eraseshape'],
-            'responsive': True
-        })
+        fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=500, margin=dict(l=10, r=10, t=10, b=10), dragmode='zoom')
+        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True, 'responsive': True})
 
-        # --- NÂNG CẤP ZOOM BIỂU ĐỒ KHỐI LƯỢNG ---
         fig_vol = go.Figure(data=[go.Bar(x=df.index, y=df['Volume'], marker_color='#26a69a', name='Khối lượng')])
         fig_vol.update_layout(height=180, template="plotly_white", margin=dict(l=10, r=10, t=0, b=10), dragmode='zoom')
         st.plotly_chart(fig_vol, use_container_width=True, config={'scrollZoom': True})
@@ -187,44 +176,35 @@ if ma_chinh:
                 perf = pd.DataFrame({ma_chinh: (comb.iloc[:,0]/comb.iloc[0,0]-1)*100, ma_ss: (comb.iloc[:,1]/comb.iloc[0,1]-1)*100}, index=comb.index)
                 st.line_chart(perf)
                 c_rev1, c_rev2 = st.columns(2)
-                with c_rev1:
-                    st.info(f"🔎 **Kỹ thuật:** {ma_chinh} ({rsi_ht:.2f}) vs {ma_ss} ({float(df_s['RSI'].iloc[-1]):.2f}).")
-                with c_rev2:
-                    pe_main = stock_obj.info.get('trailingPE', 'N/A')
-                    pe_ss = stock_s_obj.info.get('trailingPE', 'N/A')
-                    st.success(f"💎 **MBA Định giá:** P/E {ma_chinh}: {pe_main} | P/E {ma_ss}: {pe_ss}.")
+                with c_rev1: st.info(f"🔎 **Kỹ thuật:** {ma_chinh} ({rsi_ht:.2f}) vs {ma_ss} ({float(df_s['RSI'].iloc[-1]):.2f}).")
+                with c_rev2: st.success(f"💎 **MBA Định giá:** P/E {ma_chinh}: {stock_obj.info.get('trailingPE', 'N/A')} | P/E {ma_ss}: {stock_s_obj.info.get('trailingPE', 'N/A')}.")
         else:
             st.subheader(f"🧐 Nhận định chuyên sâu: {ma_chinh}")
             c_ind1, c_ind2 = st.columns(2)
-            with c_ind1:
-                st.info(f"📊 **Xu hướng:** {'TÍCH CỰC' if g_ht > ma_ht else 'TIÊU CỰC'} trên MA20. RSI cho thấy xung lực đang {'mạnh' if rsi_ht > 50 else 'yếu'}.")
-            with c_ind2:
-                target_price = stock_obj.info.get('targetMeanPrice', 'N/A')
-                st.success(f"🎯 **Giá mục tiêu:** {f'{target_price:,.0f} VNĐ' if target_price != 'N/A' else 'N/A'} | Vốn hóa: {stock_obj.info.get('marketCap', 0) / 1e12:,.2f} Tỷ VNĐ.")
+            with c_ind1: st.info(f"📊 **Xu hướng:** {'TÍCH CỰC' if g_ht > ma_ht else 'TIÊU CỰC'} trên MA20.")
+            with c_ind2: st.success(f"🎯 **Giá mục tiêu:** {f'{stock_obj.info.get('targetMeanPrice', 0):,.0f} VNĐ' if stock_obj.info.get('targetMeanPrice') else 'N/A'}.")
 
         st.markdown("---")
-        st.subheader("📝 Báo cáo nhanh cho Sales Exec")
-        summary_text = f"NHẬN ĐỊNH {ma_chinh} ({now}):\n- Giá: {g_ht:,.0f} VNĐ\n- Trạng thái: {label}\n- RSI: {rsi_ht:.2f}\n- Biến động phiên (ATR): {atr_ht:,.0f} VNĐ.\n- Chiến lược: Mua gom quanh {lw_ht:,.0f}."
-        st.text_area("Copy nội dung này gửi cho Sếp/Đối tác:", value=summary_text, height=120)
+        st.subheader("📝 Báo cáo nhanh")
+        summary_text = f"NHẬN ĐỊNH {ma_chinh} ({now}):\n- Giá: {g_ht:,.0f} VNĐ\n- Trạng thái: {label}\n- RSI: {rsi_ht:.2f}\n- Chiến lược: Mua quanh {lw_ht:,.0f}."
+        st.text_area("Nội dung báo cáo:", value=summary_text, height=120)
 
+        # --- THÔNG TIN DOANH NGHIỆP ---
         st.markdown("---")
         col_info, col_rev = st.columns([1, 1])
         with col_info:
             st.subheader("🏢 Thông tin doanh nghiệp")
             try:
-                info = stock_obj.info
-                st.write(f"**Tên:** {info.get('longName', ma_chinh)}")
-                with st.expander("📖 Xem tóm tắt tiếng Việt"):
-                    st.write(VI_DESCRIPTIONS.get(ma_chinh, "Đang cập nhật mô tả chuyên sâu..."))
+                st.write(f"**Tên:** {stock_obj.info.get('longName', ma_chinh)}")
+                with st.expander("📖 Xem tóm tắt"):
+                    st.write(VI_DESCRIPTIONS.get(ma_chinh, "Mô tả tiếng Việt đang được cập nhật."))
             except: st.info("Đang đồng bộ...")
         with col_rev:
             st.subheader("💰 Doanh thu")
             try:
-                financials = stock_obj.financials
-                if not financials.empty:
-                    rev = financials.loc['Total Revenue'].head(4)
-                    rev_df = pd.DataFrame({'Năm': rev.index.year, 'Doanh thu (Tỷ)': rev.values / 1e9})
-                    st.bar_chart(data=rev_df, x='Năm', y='Doanh thu (Tỷ)', color="#26a69a")
+                rev = stock_obj.financials.loc['Total Revenue'].head(4)
+                rev_df = pd.DataFrame({'Năm': rev.index.year, 'Doanh thu (Tỷ)': rev.values / 1e9})
+                st.bar_chart(data=rev_df, x='Năm', y='Doanh thu (Tỷ)', color="#26a69a")
             except: st.info("Không có biểu đồ.")
 
         st.markdown("---")
