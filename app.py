@@ -59,17 +59,14 @@ if "first_load" not in st.session_state:
     st.session_state.first_load = True
     st.rerun()
 
-# --- 3. BỘ TỪ ĐIỂN MÔ TẢ TIẾNG VIỆT ---
+# --- 3. BỘ TỪ ĐIỂN MÔ TẢ ---
 VI_DESCRIPTIONS = {
-    "MWG": "Công ty Cổ phần Đầu tư Thế giới Di động là nhà bán lẻ số 1 Việt Nam về doanh thu và lợi nhuận, vận hành các chuỗi: Thegioididong.com, Dienmayxanh.com và Bachhoaxanh.com.",
-    "MSN": "Tập đoàn Masan là một trong những công ty hàng đầu trong ngành hàng tiêu dùng và bán lẻ tại Việt Nam, sở hữu các thương hiệu mạnh như Chin-su, Nam Ngư, Omachi và chuỗi WinMart.",
-    "VNM": "Công ty Cổ phần Sữa Việt Nam (Vinamilk) là doanh nghiệp sản xuất sữa hàng đầu Việt Nam với hệ thống trang trại chuẩn quốc tế và mạng lưới phân phối rộng khắp toàn cầu.",
-    "FPT": "Tập đoàn FPT là công ty công nghệ hàng đầu Việt Nam, hoạt động trong 3 lĩnh vực cốt lõi: Công nghệ, Viễn thông và Giáo dục, vươn tầm mạnh mẽ ra thị trường quốc tế.",
-    "HPG": "Tập đoàn Hòa Phát là tập đoàn sản xuất công nghiệp hàng đầu Việt Nam, giữ thị phần số 1 về thép xây dựng và ống thép, đồng thời mở rộng sang lĩnh vực nông nghiệp và bất động sản.",
-    "VCB": "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank) là ngân hàng có quy mô vốn hóa lớn nhất thị trường, đóng vai trò chủ đạo trong hệ thống tài chính quốc gia.",
-    "VIC": "Tập đoàn Vingroup là tập đoàn đa ngành lớn nhất Việt Nam, hoạt động trong các lĩnh vực then chốt như Công nghiệp (VinFast), Bất động sản (Vinhomes), Công nghệ và Dịch vụ.",
-    "GAS": "Tổng Công ty Khí Việt Nam (PV GAS) là đơn vị thành viên chủ lực của Tập đoàn Dầu khí Việt Nam, dẫn dắt ngành công nghiệp khí toàn quốc.",
-    "SSI": "Công ty Cổ phần Chứng khoán SSI là định chế tài chính hàng đầu, cung cấp các dịch vụ môi giới, tư vấn đầu tư và quản lý tài sản chuyên nghiệp nhất Việt Nam."
+    "MWG": "Thế Giới Di Động là nhà bán lẻ số 1 Việt Nam, vận hành chuỗi TGDĐ, Điện Máy Xanh và Bách Hóa Xanh.",
+    "MSN": "Tập đoàn Masan dẫn đầu ngành hàng tiêu dùng và bán lẻ (WinMart) tại Việt Nam.",
+    "VNM": "Vinamilk là doanh nghiệp sản xuất sữa lớn nhất Việt Nam với mạng lưới toàn cầu.",
+    "FPT": "Tập đoàn công nghệ và viễn thông lớn nhất Việt Nam, vươn tầm quốc tế.",
+    "HPG": "Hòa Phát là 'vua thép' Việt Nam, dẫn đầu về thị phần thép xây dựng.",
+    "VCB": "Vietcombank là ngân hàng có vốn hóa và lợi nhuận dẫn đầu hệ thống ngân hàng Việt Nam."
 }
 
 # --- 4. HÀM HỖ TRỢ ---
@@ -80,9 +77,7 @@ def get_clean_data(ticker):
     df = stock.history(period="1y")
     if df is not None and not df.empty:
         df['MA20'] = df['Close'].rolling(20).mean()
-        df['STD'] = df['Close'].rolling(20).std()
-        df['Upper'] = df['MA20'] + (df['STD'] * 2)
-        df['Lower'] = df['MA20'] - (df['STD'] * 2)
+        df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
         d = df['Close'].diff(); g = (d.where(d > 0, 0)).rolling(14).mean(); l = (-d.where(d < 0, 0)).rolling(14).mean()
         df['RSI'] = 100 - (100 / (1 + (g/l)))
         return df, stock
@@ -108,7 +103,7 @@ all_options = [f"{t} - {n} ({g})" for g, s in stock_dict.items() for t, n in s.i
 
 # --- 6. SIDEBAR ---
 st.sidebar.title("Chào Bảo Minh MBA!")
-ma_chinh_choice = st.sidebar.selectbox("Chọn mã phân tích:", options=all_options)
+ma_chinh_choice = st.sidebar.selectbox("Chọn mã phân tích chính:", options=all_options)
 ma_chinh = ma_chinh_choice.split(" - ")[0]
 
 enable_compare = st.sidebar.checkbox("⚖️ So sánh đối thủ")
@@ -146,12 +141,34 @@ if ma_chinh:
         fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=450, margin=dict(l=10, r=10, t=10, b=10))
         st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown(f"### 💡 Lời đề nghị cho {ma_chinh}")
-        if rsi_ht < 35: st.success(f"💎 **MUA:** RSI {rsi_ht:.2f} (Quá bán). Vùng giá hấp dẫn.")
-        elif rsi_ht > 70: st.error(f"🔥 **BÁN:** RSI {rsi_ht:.2f} (Quá mua). Rủi ro đảo chiều.")
-        else: st.info(f"📈 **THEO DÕI:** RSI {rsi_ht:.2f} (Cân bằng). Ưu tiên nắm giữ.")
+        # --- PHẦN REVIEW ĐỐI ĐẦU (NẾU CÓ SO SÁNH) ---
+        if enable_compare and ma_ss:
+            st.markdown("---")
+            st.subheader(f"⚔️ Review Đối Đầu: {ma_chinh} vs {ma_ss}")
+            df_s, stock_s_obj = get_clean_data(ma_ss)
+            
+            if df_s is not None:
+                # 1. So sánh hiệu suất
+                comb = pd.concat([df['Close'], df_s['Close']], axis=1).dropna()
+                perf = pd.DataFrame({ma_chinh: (comb.iloc[:,0]/comb.iloc[0,0]-1)*100, ma_ss: (comb.iloc[:,1]/comb.iloc[0,1]-1)*100}, index=comb.index)
+                st.line_chart(perf)
+                
+                # 2. Bảng nhận định chi tiết
+                c_rev1, c_rev2 = st.columns(2)
+                i_main = stock_obj.info
+                i_ss = stock_s_obj.info
+                
+                with c_rev1:
+                    st.info(f"🔎 **Góc nhìn kỹ thuật:**\n- {ma_chinh} đang có RSI là {rsi_ht:.2f}, trong khi {ma_ss} đạt {float(df_s['RSI'].iloc[-1]):.2f}.\n- {'Sức mạnh giá của ' + ma_chinh + ' tốt hơn' if rsi_ht > float(df_s['RSI'].iloc[-1]) else 'Cơ hội tích lũy nằm ở ' + ma_chinh if rsi_ht < 40 else ma_ss + ' đang hút tiền mạnh hơn'}.")
+                
+                with c_rev2:
+                    pe_main = i_main.get('trailingPE', 'N/A')
+                    pe_ss = i_ss.get('trailingPE', 'N/A')
+                    st.success(f"💎 **Định giá MBA:**\n- P/E {ma_chinh}: {pe_main} | P/E {ma_ss}: {pe_ss}.\n- {'Về mặt định giá, ' + ma_chinh + ' đang rẻ hơn đối thủ.' if isinstance(pe_main, (int, float)) and isinstance(pe_ss, (int, float)) and pe_main < pe_ss else 'Thị trường đang trả giá cao hơn cho kỳ vọng của ' + ma_chinh if pe_main != 'N/A' else 'Dữ liệu định giá đang cập nhật.'}")
 
-        # --- PHẦN MỚI: THÔNG TIN CÔNG TY (TIẾNG VIỆT) & DOANH THU ---
+                st.warning(f"💡 **Kết luận Sales Executive:** Nếu ưu tiên sự an toàn, hãy nhìn vào MA20. Nếu ưu tiên đột phá, hãy theo dõi tin tức ngành của cả hai mã tại header.")
+
+        # --- THÔNG TIN CÔNG TY & DOANH THU ---
         st.markdown("---")
         col_info, col_rev = st.columns([1, 1])
         with col_info:
@@ -159,13 +176,10 @@ if ma_chinh:
             try:
                 info = stock_obj.info
                 st.write(f"**Tên:** {info.get('longName', ma_chinh)}")
-                st.write(f"**Lĩnh vực:** {info.get('industry', 'Đa ngành')}")
-                st.write(f"**Website:** {info.get('website', 'N/A')}")
+                st.write(f"**Ngành:** {info.get('industry', 'Đa ngành')}")
                 with st.expander("📖 Xem tóm tắt bằng tiếng Việt"):
-                    # Lấy mô tả tiếng Việt từ bộ từ điển, nếu không có mới dùng tiếng Anh
-                    desc_vi = VI_DESCRIPTIONS.get(ma_chinh, "Dữ liệu đang được cập nhật bằng tiếng Việt. Hiện tại bạn có thể tham khảo mô tả chi tiết tại website chính thức của doanh nghiệp.")
-                    st.write(desc_vi)
-            except: st.info("Dữ liệu đang được đồng bộ...")
+                    st.write(VI_DESCRIPTIONS.get(ma_chinh, "Mô tả chi tiết đang được cập nhật bằng tiếng Việt cho mã này."))
+            except: st.info("Đang đồng bộ dữ liệu...")
 
         with col_rev:
             st.subheader("💰 Doanh thu 4 năm gần nhất")
@@ -175,28 +189,10 @@ if ma_chinh:
                     rev = financials.loc['Total Revenue'].head(4)
                     rev_df = pd.DataFrame({'Năm': rev.index.year, 'Doanh thu (Tỷ)': rev.values / 1e9})
                     st.bar_chart(data=rev_df, x='Năm', y='Doanh thu (Tỷ)', color="#26a69a")
-                else: st.info("Chưa có dữ liệu doanh thu.")
-            except: st.info("Dữ liệu tài chính tạm thời chưa khả dụng.")
+                else: st.info("Chưa có dữ liệu tài chính.")
+            except: st.info("Không thể tải biểu đồ doanh thu.")
 
-        # --- PHÂN TÍCH TIỀM NĂNG ---
-        st.markdown("---")
-        st.subheader("🎯 Phân tích Cơ hội & Tiềm năng (MBA View)")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.info(f"🚀 **Cơ hội:**\n- Hưởng lợi từ sự phục hồi sức mua trong nước.\n- Chuyển đổi mô hình kinh doanh số linh hoạt.\n- Tiềm năng tăng trưởng dài hạn nhờ vị thế đầu ngành.")
-        with c2:
-            st.warning(f"⚠️ **Thách thức:**\n- Biến động chi phí vận hành và logistics.\n- Cạnh tranh gay gắt về thị phần bán lẻ/dịch vụ.\n- Tín hiệu RSI ({rsi_ht:.2f}) cần được quan sát sát sao.")
-
-        # --- DỮ LIỆU CŨ ---
-        if enable_compare and ma_ss:
-            df_s, _ = get_clean_data(ma_ss)
-            if df_s is not None:
-                st.markdown("---")
-                comb = pd.concat([df['Close'], df_s['Close']], axis=1).dropna()
-                perf = pd.DataFrame({ma_chinh: (comb.iloc[:,0]/comb.iloc[0,0]-1)*100, ma_ss: (comb.iloc[:,1]/comb.iloc[0,1]-1)*100}, index=comb.index)
-                st.subheader(f"⚔️ So sánh % tăng trưởng: {ma_chinh} vs {ma_ss}")
-                st.line_chart(perf)
-
+        # --- CHIẾN LƯỢC & CÔNG THỨC ---
         st.markdown("---")
         col_h, col_s = st.columns(2)
         with col_h:
@@ -206,9 +202,7 @@ if ma_chinh:
             st.subheader("🎯 Chiến lược Giao dịch MBA")
             strategy_data = {"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]}
             st.table(pd.DataFrame(strategy_data))
-        
-        st.markdown("---")
-        st.subheader("📐 Công thức & Lý thuyết")
+
         st.latex(r"RSI = 100 - \frac{100}{1 + RS}")
 
 st.sidebar.write("💻 **Bảo Minh MBA System**")
