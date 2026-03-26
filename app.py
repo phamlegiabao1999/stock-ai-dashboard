@@ -4,6 +4,9 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import time
+import json
+import requests
+from streamlit_lottie import st_lottie
 
 # --- 1. CẤU HÌNH ---
 st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
