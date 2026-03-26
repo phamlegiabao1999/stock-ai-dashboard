@@ -1,6 +1,6 @@
-google-genai==0.3.0
 streamlit
 yfinance
 matplotlib
 pandas
 numpy
+google-genai
