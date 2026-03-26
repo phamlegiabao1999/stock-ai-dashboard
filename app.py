@@ -3,17 +3,17 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import google.generativeai as genai
+from google import genai # Thư viện mới chuẩn 2026
 
 # --- 1. CẤU HÌNH AI ---
 if "GEMINI_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 else:
     st.warning("⚠️ Chưa cấu hình GEMINI_API_KEY trong Secrets.")
 
 st.set_page_config(page_title="AI Stock - Bảo Minh", layout="wide")
 
-# --- 2. DATABASE DANH MỤC ---
+# (Giữ nguyên phần stock_dict cũ của bạn...)
 stock_dict = {
     "FMCG & BÁN LẺ": {"MSN": "Masan", "VNM": "Vinamilk", "MWG": "MWG", "PNJ": "PNJ", "KDC": "Kido"},
     "CÔNG NGHỆ & THÉP": {"FPT": "FPT", "HPG": "Hòa Phát", "HSG": "Hoa Sen", "DGC": "Đức Giang"},
@@ -26,12 +26,12 @@ for group, stocks in stock_dict.items():
     for ticker, name in stocks.items():
         flat_list.append(f"{ticker} - {name} ({group})")
 
-# --- 3. KHỞI TẠO BỘ NHỚ ---
+# --- 2. KHỞI TẠO BỘ NHỚ ---
 if "data" not in st.session_state: st.session_state.data = None
 if "ma_current" not in st.session_state: st.session_state.ma_current = ""
 if "messages" not in st.session_state: st.session_state.messages = []
 
-# --- 4. SIDEBAR ---
+# --- 3. SIDEBAR ---
 st.sidebar.header("🔍 Bộ lọc mã")
 search_choice = st.sidebar.selectbox("Chọn mã:", options=["Tự nhập mã khác..."] + flat_list)
 if search_choice == "Tự nhập mã khác...":
@@ -41,14 +41,13 @@ else:
 
 btn_analyze = st.sidebar.button("🚀 Bắt đầu phân tích")
 
-# --- 5. XỬ LÝ DỮ LIỆU ---
+# --- 4. XỬ LÝ DỮ LIỆU ---
 if (btn_analyze or st.session_state.data is not None) and ma_input:
-    if btn_analyze or st.session_state.data is None or st.session_state.ma_current != ma_input:
+    if btn_analyze or st.session_state.ma_current != ma_input:
         ticker_symbol = ma_input + ".VN" if "-" not in ma_input and "." not in ma_input else ma_input
         with st.spinner(f'Đang tải dữ liệu {ma_input}...'):
             df = yf.download(ticker_symbol, period="1y", progress=False)
             if not df.empty:
-                # Tính toán
                 df['MA20'] = df['Close'].rolling(window=20).mean()
                 df['STD'] = df['Close'].rolling(window=20).std()
                 df['Lower'] = df['MA20'] - (df['STD'] * 2)
@@ -57,19 +56,16 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
                 gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
                 loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
                 df['RSI'] = 100 - (100 / (1 + (gain/loss)))
-                
                 st.session_state.data = df
                 st.session_state.ma_current = ma_input
                 st.session_state.messages = []
-            else: st.error("Lỗi dữ liệu!")
 
-    # Hiển thị
     if st.session_state.data is not None:
         df = st.session_state.data
-        g_ht = float(df['Close'].iloc[-1])
-        rsi_ht = float(df['RSI'].iloc[-1])
-        ma_ht = float(df['MA20'].iloc[-1])
-        lw_ht = float(df['Lower'].iloc[-1])
+        g_ht = float(df['Close'].iloc[-1].item())
+        rsi_ht = float(df['RSI'].iloc[-1].item())
+        ma_ht = float(df['MA20'].iloc[-1].item())
+        lw_ht = float(df['Lower'].iloc[-1].item())
         
         st.title(f"📈 {st.session_state.ma_current}")
         c1, c2, c3 = st.columns(3)
@@ -77,7 +73,6 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
         c2.metric("RSI", f"{rsi_ht:.2f}")
         c3.metric("vs MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
 
-        # Biểu đồ
         fig, ax = plt.subplots(figsize=(10, 4))
         ax.plot(df['Close'], color='#1f77b4', label='Giá')
         ax.plot(df['MA20'], color='orange', linestyle='--', label='MA20')
@@ -85,7 +80,6 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
         ax.legend()
         st.pyplot(fig)
 
-        # PHẦN CHI TIẾT
         st.markdown("---")
         col_l, col_r = st.columns(2)
         with col_l:
@@ -104,7 +98,7 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
                 "Giá": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]
             }))
 
-        # --- CHAT AI ---
+        # --- 5. CHAT AI (SỬA LỖI 404) ---
         st.markdown("---")
         st.subheader(f"💬 Chat AI: {st.session_state.ma_current}")
         for msg in st.session_state.messages:
@@ -116,9 +110,11 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
 
             with st.chat_message("assistant"):
                 try:
-                    # Cách gọi tối giản để tránh 404
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    response = model.generate_content(f"Mã {st.session_state.ma_current}, Giá {g_ht}, RSI {rsi_ht}. Trả lời: {prompt}")
+                    # Cách gọi chuẩn của thư viện google-genai mới
+                    response = client.models.generate_content(
+                        model="gemini-1.5-flash",
+                        contents=f"Mã {st.session_state.ma_current}, Giá {g_ht}, RSI {rsi_ht}. Câu hỏi: {prompt}"
+                    )
                     st.markdown(response.text)
                     st.session_state.messages.append({"role": "assistant", "content": response.text})
                 except Exception as e:
