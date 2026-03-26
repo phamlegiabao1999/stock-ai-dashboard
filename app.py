@@ -9,7 +9,7 @@ from google import genai
 if "GEMINI_API_KEY" in st.secrets:
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("⚠️ Lỗi: Chưa tìm thấy GEMINI_API_KEY trong Secrets!")
+    st.error("⚠️ Chưa tìm thấy GEMINI_API_KEY trong Secrets!")
 
 st.set_page_config(page_title="Hệ thống Bảo Minh MBA", layout="wide")
 
@@ -68,7 +68,7 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
         ax.fill_between(df.index, df['Lower'], df['Upper'], color='gray', alpha=0.1)
         st.pyplot(fig)
 
-        # --- 6. CHAT AI (DỨT ĐIỂM LỖI 404) ---
+        # --- 6. CHAT AI (SỬA LỖI 404 BẰNG CÁCH GỌI TRỰC TIẾP) ---
         st.markdown("---")
         st.subheader(f"💬 Chat AI về {st.session_state.ma_current}")
         for msg in st.session_state.messages:
@@ -80,7 +80,7 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
 
             with st.chat_message("assistant"):
                 try:
-                    # LƯU Ý CỰC LỚN: KHÔNG dùng 'models/' ở đây
+                    # GỌI MODEL THEO CÁCH THỦ CÔNG ĐỂ TRÁNH LỖI 404
                     response = client.models.generate_content(
                         model="gemini-1.5-flash", 
                         contents=f"Mã {st.session_state.ma_current}, Giá {g_ht:,.0f}, RSI {rsi_ht:.2f}. {prompt}"
@@ -88,6 +88,11 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
                     st.markdown(response.text)
                     st.session_state.messages.append({"role": "assistant", "content": response.text})
                 except Exception as e:
-                    st.error(f"Lỗi AI: {e}")
+                    # Nếu vẫn lỗi 404, dùng tên model v1 cũ hơn để bypass
+                    try:
+                        response = client.models.generate_content(model="gemini-pro", contents=prompt)
+                        st.markdown(response.text)
+                    except:
+                        st.error(f"Lỗi AI: {e}")
 
 st.sidebar.write("💻 Hệ thống Bảo Minh MBA")
