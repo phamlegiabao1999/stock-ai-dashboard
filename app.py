@@ -7,6 +7,7 @@ from google import genai
 
 # --- 1. CẤU HÌNH AI ---
 if "GEMINI_API_KEY" in st.secrets:
+    # Khởi tạo client với cấu hình trực tiếp
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 else:
     st.warning("⚠️ Chưa cấu hình GEMINI_API_KEY trong Secrets.")
@@ -62,10 +63,10 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
 
     if st.session_state.data is not None:
         df = st.session_state.data
-        g_ht = float(df['Close'].iloc[-1].item())
-        rsi_ht = float(df['RSI'].iloc[-1].item())
-        ma_ht = float(df['MA20'].iloc[-1].item())
-        lw_ht = float(df['Lower'].iloc[-1].item())
+        g_ht = float(df['Close'].iloc[-1])
+        rsi_ht = float(df['RSI'].iloc[-1])
+        ma_ht = float(df['MA20'].iloc[-1])
+        lw_ht = float(df['Lower'].iloc[-1])
         
         st.title(f"📈 {st.session_state.ma_current}")
         c1, c2, c3 = st.columns(3)
@@ -97,7 +98,7 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
                 "Giá": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]
             }))
 
-        # --- 5. CHAT AI (SỬA LỖI 404 TRIỆT ĐỂ) ---
+        # --- 5. CHAT AI (FIX LỖI 404 BẰNG MODEL CƠ BẢN NHẤT) ---
         st.markdown("---")
         st.subheader(f"💬 Chat AI về {st.session_state.ma_current}")
         for msg in st.session_state.messages:
@@ -109,23 +110,15 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
 
             with st.chat_message("assistant"):
                 try:
-                    # Gọi model flash (không có tiền tố models/)
+                    # KHÔNG dùng tiền tố 'models/', dùng tên trực tiếp
                     response = client.models.generate_content(
                         model="gemini-1.5-flash",
-                        contents=f"Mã chứng khoán {st.session_state.ma_current}, Giá {g_ht:,.0f}, RSI {rsi_ht:.2f}. {prompt}"
+                        contents=f"Dữ liệu mã {st.session_state.ma_current}: Giá {g_ht:,.0f}, RSI {rsi_ht:.2f}. Trả lời câu hỏi: {prompt}"
                     )
                     st.markdown(response.text)
                     st.session_state.messages.append({"role": "assistant", "content": response.text})
                 except Exception as e:
-                    # PHƯƠNG ÁN DỰ PHÒNG: Thử dùng model gemini-1.5-pro nếu flash lỗi
-                    try:
-                        response = client.models.generate_content(
-                            model="gemini-1.5-pro",
-                            contents=f"Dữ liệu mã {st.session_state.ma_current}: {prompt}"
-                        )
-                        st.markdown(response.text)
-                        st.session_state.messages.append({"role": "assistant", "content": response.text})
-                    except Exception as e2:
-                        st.error(f"Lỗi AI: {e2}")
+                    # Fallback cuối cùng nếu flash vẫn lỗi
+                    st.error(f"Lỗi AI: {e}")
 
 st.sidebar.write("💻 Bảo Minh MBA")
