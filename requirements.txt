@@ -1,0 +1,6 @@
+streamlit==1.32.0
+yfinance==0.2.40
+matplotlib
+pandas
+numpy
+google-genai==0.3.0
