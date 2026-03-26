@@ -48,7 +48,7 @@ if "first_load" not in st.session_state:
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
-        st.markdown("<h1 style='text-align: center; font-size: 150px;'>🐂💪🔥</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; font-size: 150px;'>🐂🏄🎭</h1>", unsafe_allow_html=True)
         st.balloons()
         p_bar = st.progress(0)
         for p in range(101):
