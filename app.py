@@ -34,7 +34,7 @@ if not st.session_state.logged_in:
                     st.error("Thông tin đăng nhập không chính xác!")
     st.stop()
 
-# --- 2. HIỆU ỨNG LOADING (10 GIÂY - DÙNG CODE THUẦN SIÊU BỀN) ---
+# --- 2. HIỆU ỨNG LOADING 10S ---
 if "first_load" not in st.session_state:
     investment_hints = [
         "💡 RSI < 30 thường là vùng quá bán, nhưng hãy đợi tín hiệu nến đảo chiều để mua.",
@@ -45,43 +45,35 @@ if "first_load" not in st.session_state:
         "🚀 Trong đầu tư chứng khoán, kiên nhẫn đôi khi mang lại lợi nhuận cao hơn kỹ năng.",
         "📈 Bollinger Bands co thắt thường dự báo một biến động mạnh sắp diễn ra."
     ]
-
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
-        
-        # SỬA LỖI DỨT ĐIỂM: Dùng Emoji khổng lồ thay cho GIF bị lỗi
-        # Con trâu (Bull) và Tạ (Dumbbell) rực lửa
         st.markdown("<h1 style='text-align: center; font-size: 150px;'>🐂💪🔥</h1>", unsafe_allow_html=True)
-        st.balloons() # Thêm hiệu ứng bóng bay ăn mừng đăng nhập
-        
+        st.balloons()
         hint_placeholder = st.empty()
         p_bar = st.progress(0)
-        
         for p in range(101):
-            if p % 25 == 0:
-                hint_placeholder.info(random.choice(investment_hints))
+            if p % 25 == 0: hint_placeholder.info(random.choice(investment_hints))
             time.sleep(0.1) 
             p_bar.progress(p)
-            
     st.session_state.first_load = True
     st.rerun()
 
 # --- 3. HÀM HỖ TRỢ ---
 def get_clean_data(ticker):
-    if not ticker or len(ticker) < 3: return None
+    if not ticker or len(ticker) < 3: return None, None
     symbol = ticker + ".VN" if "." not in ticker else ticker
-    df = yf.download(symbol, period="1y", progress=False)
+    stock = yf.Ticker(symbol)
+    df = stock.history(period="1y")
     if df is not None and not df.empty:
-        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-        df = df.copy()
         df['MA20'] = df['Close'].rolling(20).mean()
         df['STD'] = df['Close'].rolling(20).std()
-        df['Upper'] = df['MA20'] + (df['STD'] * 2); df['Lower'] = df['MA20'] - (df['STD'] * 2)
+        df['Upper'] = df['MA20'] + (df['STD'] * 2)
+        df['Lower'] = df['MA20'] - (df['STD'] * 2)
         d = df['Close'].diff(); g = (d.where(d > 0, 0)).rolling(14).mean(); l = (-d.where(d < 0, 0)).rolling(14).mean()
         df['RSI'] = 100 - (100 / (1 + (g/l)))
-        return df
-    return None
+        return df, stock
+    return None, None
 
 def get_news(ticker):
     try:
@@ -107,33 +99,26 @@ ma_chinh_choice = st.sidebar.selectbox("Chọn mã phân tích:", options=all_op
 ma_chinh = ma_chinh_choice.split(" - ")[0]
 
 enable_compare = st.sidebar.checkbox("⚖️ So sánh đối thủ")
-ma_ss = ""
-if enable_compare:
-    comp_choice = st.sidebar.selectbox("Chọn đối thủ:", options=[x for x in all_options if x != ma_chinh_choice])
-    ma_ss = comp_choice.split(" - ")[0]
+ma_ss = st.sidebar.selectbox("Chọn đối thủ:", options=[x for x in all_options if x != ma_chinh_choice]).split(" - ")[0] if enable_compare else ""
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🔴 Đăng xuất"):
     st.session_state.logged_in = False; st.session_state.first_load = False; st.rerun()
 
-# --- 6. HEADER (GIỜ VN & TIN TỨC) ---
+# --- 6. HEADER ---
 tz = pytz.timezone('Asia/Ho_Chi_Minh')
 now = datetime.now(tz).strftime("%d/%m/%Y - %H:%M:%S")
 h_col1, h_col2 = st.columns([1, 2])
 with h_col1:
-    st.markdown(f"📍 **Khu vực:** `Hồ Chí Minh (VN)`")
-    st.markdown(f"📅 **Thời gian:** `{now}`")
-
+    st.markdown(f"📍 **Khu vực:** `Hồ Chí Minh (VN)`\n\n📅 **Thời gian:** `{now}`")
 with h_col2:
-    st.markdown(f"📰 **Tin tức mới nhất ({ma_chinh}):**")
     news = get_news(ma_chinh)
     if news:
-        for n in news:
-            st.markdown(f"● <a href='{n['link']}' target='_blank' style='color:#4CAF50; text-decoration:none;'>{n['title']}</a>", unsafe_allow_html=True)
+        for n in news: st.markdown(f"● <a href='{n['link']}' target='_blank' style='color:#4CAF50; text-decoration:none;'>{n['title']}</a>", unsafe_allow_html=True)
 
 # --- 7. HIỂN THỊ DASHBOARD ---
 if ma_chinh:
-    df = get_clean_data(ma_chinh)
+    df, stock_obj = get_clean_data(ma_chinh)
     if df is not None:
         st.title(f"📊 Dashboard Phân Tích: {ma_chinh}")
         g_ht = float(df['Close'].iloc[-1]); rsi_ht = float(df['RSI'].iloc[-1]); ma_ht = float(df['MA20'].iloc[-1]); lw_ht = float(df['Lower'].iloc[-1])
@@ -153,8 +138,43 @@ if ma_chinh:
         elif rsi_ht > 70: st.error(f"🔥 **BÁN:** RSI {rsi_ht:.2f} (Quá mua).")
         else: st.info(f"📈 **THEO DÕI:** RSI {rsi_ht:.2f} (Cân bằng).")
 
+        # --- PHẦN MỚI: THÔNG TIN CÔNG TY & DOANH THU ---
+        st.markdown("---")
+        col_info, col_rev = st.columns([1, 1])
+        with col_info:
+            st.subheader("🏢 Thông tin doanh nghiệp")
+            try:
+                info = stock_obj.info
+                st.write(f"**Tên:** {info.get('longName', 'N/A')}")
+                st.write(f"**Ngành:** {info.get('industry', 'N/A')}")
+                st.write(f"**Website:** {info.get('website', 'N/A')}")
+                with st.expander("📖 Xem mô tả chi tiết"):
+                    st.write(info.get('longBusinessSummary', 'Đang cập nhật...'))
+            except: st.info("Dữ liệu hồ sơ đang được đồng bộ...")
+
+        with col_rev:
+            st.subheader("💰 Doanh thu 4 năm gần nhất")
+            try:
+                financials = stock_obj.financials
+                if not financials.empty:
+                    rev = financials.loc['Total Revenue'].head(4)
+                    rev_df = pd.DataFrame({'Năm': rev.index.year, 'Doanh thu (Tỷ)': rev.values / 1e9})
+                    st.bar_chart(data=rev_df, x='Năm', y='Doanh thu (Tỷ)', color="#26a69a")
+                else: st.info("Chưa có dữ liệu doanh thu trên Yahoo Finance.")
+            except: st.info("Không thể tải biểu đồ tài chính.")
+
+        # --- PHẦN MỚI: PHÂN TÍCH TIỀM NĂNG ---
+        st.markdown("---")
+        st.subheader("🎯 Phân tích Cơ hội & Tiềm năng (MBA View)")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.info(f"🚀 **Cơ hội:**\n- Chuyển đổi số mạnh mẽ trong ngành.\n- Kỳ vọng hưởng lợi từ chính sách kinh tế 2026.\n- Vị thế đầu ngành giúp bảo vệ biên lợi nhuận.")
+        with c2:
+            st.warning(f"⚠️ **Thách thức:**\n- Biến động tỷ giá và chi phí đầu vào.\n- Áp lực cạnh tranh từ các đối thủ cùng ngành.\n- RSI hiện tại ({rsi_ht:.2f}) {'cần lưu ý' if rsi_ht > 70 else 'đang ở mức an toàn'}.")
+
+        # --- CÁC THÔNG TIN CŨ ---
         if enable_compare and ma_ss:
-            df_s = get_clean_data(ma_ss)
+            df_s, _ = get_clean_data(ma_ss)
             if df_s is not None:
                 st.markdown("---")
                 comb = pd.concat([df['Close'], df_s['Close']], axis=1).dropna()
@@ -163,16 +183,13 @@ if ma_chinh:
                 st.line_chart(perf)
 
         st.markdown("---")
-        st.subheader("📋 Lịch sử 5 phiên")
-        st.dataframe(df[['Close', 'RSI']].tail(5), use_container_width=True)
-
-        st.markdown("---")
-        st.subheader("🎯 Chiến lược Giao dịch MBA")
-        strategy_data = {
-            "Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"],
-            "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]
-        }
-        st.table(pd.DataFrame(strategy_data))
+        col_h, col_m = st.columns(2)
+        with col_h:
+            st.subheader("📋 Lịch sử 5 phiên")
+            st.dataframe(df[['Close', 'RSI']].tail(5), use_container_width=True)
+        with col_m:
+            st.subheader("🎯 Chiến lược Giao dịch MBA")
+            st.table(pd.DataFrame({"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]}))
         
         st.markdown("---")
         st.subheader("📐 Công thức & Lý thuyết")
