@@ -23,11 +23,11 @@ if not st.session_state.logged_in:
     with col2:
         st.markdown("---")
         with st.form("login_form"):
-            user = st.text_input("👤 Tài khoản (baominh):")
-            pwd = st.text_input("🔑 Mật khẩu (mba2026):", type="password")
+            user = st.text_input("👤 Tài khoản:")
+            pwd = st.text_input("🔑 Mật khẩu:", type="password")
             submit = st.form_submit_button("🚀 ĐĂNG NHẬP HỆ THỐNG", use_container_width=True)
             if submit:
-                if user == "baominh" and pwd == "mba2026":
+                if user == "baominh" and pwd == "2026":
                     st.session_state.logged_in = True
                     st.rerun()
                 else:
