@@ -19,6 +19,7 @@ if "logged_in" not in st.session_state:
 # --- MÀN HÌNH ĐĂNG NHẬP ---
 if not st.session_state.logged_in:
     st.title("🔐 Hệ thống Phân tích Bảo Minh MBA")
+    st.markdown("<h1 style='text-align: center; font-size: 100px;'>🔒</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("---")
@@ -32,10 +33,9 @@ if not st.session_state.logged_in:
                     st.rerun()
                 else:
                     st.error("Thông tin đăng nhập không chính xác!")
-        st.markdown("---")
     st.stop()
 
-# --- 2. HIỆU ỨNG LOADING (10 GIÂY VỚI ẢNH GIF CON TRÂU) ---
+# --- 2. HIỆU ỨNG LOADING (10 GIÂY VỚI GIF SIÊU BỀN) ---
 if "first_load" not in st.session_state:
     investment_hints = [
         "💡 RSI < 30 thường là vùng quá bán, nhưng hãy đợi tín hiệu nến đảo chiều để mua.",
@@ -47,19 +47,22 @@ if "first_load" not in st.session_state:
         "📈 Bollinger Bands co thắt thường dự báo một biến động mạnh sắp diễn ra."
     ]
 
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
         
-        # HIỂN THỊ ẢNH GIF CON TRÂU TẬP TẠ (Link ổn định 100%)
-        st.image("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM2Z4MXRmaGxsOHZ4OHY5amp4bWgxYXlxMXRmaGxsOHZ4OHY5amp4bSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw,L0H7L6pW8X8o8k8U8S/giphy.gif", use_container_width=True)
+        # THAY ĐỔI TẠI ĐÂY: Dùng link GIF dự phòng siêu bền
+        gif_url = "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHpueG5kbXpnd3Z3Ym1icm90ZjF6bm5pM3R6eWxtZ3R4ZnN0bjRjdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw,L0H7L6pW8X8o8k8U8S/giphy.gif"
+        try:
+            st.image(gif_url, use_container_width=True)
+        except:
+            st.markdown("<h1 style='text-align: center;'>🐂🏋️‍♂️</h1>", unsafe_allow_html=True)
         
         hint_placeholder = st.empty()
         p_bar = st.progress(0)
         
-        # Chạy trong đúng 10 giây (100 bước * 0.1s)
         for p in range(101):
-            if p % 25 == 0: # Cứ mỗi 2.5 giây đổi một mẹo mới
+            if p % 25 == 0:
                 hint_placeholder.info(random.choice(investment_hints))
             time.sleep(0.1) 
             p_bar.progress(p)
@@ -121,12 +124,15 @@ tz = pytz.timezone('Asia/Ho_Chi_Minh')
 now = datetime.now(tz).strftime("%d/%m/%Y - %H:%M:%S")
 h_col1, h_col2 = st.columns([1, 2])
 with h_col1:
-    st.markdown(f"📍 **Máy chủ:** `Hồ Chí Minh` | 📅 `{now}`")
+    st.markdown(f"📍 **Khu vực:** `Hồ Chí Minh (VN)`")
+    st.markdown(f"📅 **Thời gian:** `{now}`")
 
 with h_col2:
+    st.markdown(f"📰 **Tin tức mới nhất ({ma_chinh}):**")
     news = get_news(ma_chinh)
     if news:
-        for n in news: st.markdown(f"● <a href='{n['link']}' target='_blank' style='color:#4CAF50;text-decoration:none;'>{n['title'][:65]}...</a>", unsafe_allow_html=True)
+        for n in news:
+            st.markdown(f"● <a href='{n['link']}' target='_blank' style='color:#4CAF50; text-decoration:none;'>{n['title']}</a>", unsafe_allow_html=True)
 
 # --- 7. HIỂN THỊ DASHBOARD ---
 if ma_chinh:
@@ -166,10 +172,4 @@ if ma_chinh:
             st.dataframe(df[['Close', 'RSI']].tail(5), use_container_width=True)
         with col_m:
             st.subheader("🎯 Chiến lược MBA")
-            st.table(pd.DataFrame({"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]}))
-        
-        st.markdown("---")
-        st.subheader("📐 Công thức & Lý thuyết")
-        st.latex(r"RSI = 100 - \frac{100}{1 + RS}")
-
-st.sidebar.write("💻 **Bảo Minh MBA System**")
+            st.table(pd.DataFrame({"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}",
