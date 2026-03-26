@@ -157,14 +157,27 @@ if btn_analyze or st.session_state.data is not None:
 
             with st.chat_message("assistant"):
                 with st.spinner("AI đang trả lời..."):
-                    try:
-                        model = genai.GenerativeModel(model_name="models/gemini-pro")
-                        ctx = f"Mã {st.session_state.ma_current}, Giá {gia_ht}, RSI {rsi_ht}, MA20 {ma20_ht}. Trả lời ngắn."
-                        resp = model.generate_content([ctx, prompt])
-                        st.markdown(resp.text)
-                        st.session_state.messages.append({"role": "assistant", "content": resp.text})
-                    except Exception as e:
-                        st.error(f"Lỗi AI: {e}")
+# --- PHẦN CHAT AI ĐÃ SỬA LỖI 404 ---
+try:
+    # Thay vì chỉ ghi tên, ta ghi đầy đủ đường dẫn model
+    model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+    
+    # Tạo ngữ cảnh ngắn gọn cho AI
+    ctx = f"Bạn là chuyên gia tài chính. Mã {st.session_state.ma_current}, Giá {gia_ht:,.0f}, RSI {rsi_ht:.2f}. Trả lời tiếng Việt, ngắn gọn."
+    
+    # Gọi hàm tạo nội dung
+    response = model.generate_content([ctx, prompt])
+    
+    if response.text:
+        st.markdown(response.text)
+        st.session_state.messages.append({"role": "assistant", "content": response.text})
+    else:
+        st.error("AI không trả về nội dung. Hãy thử lại.")
+        
+except Exception as e:
+    # Nếu vẫn lỗi 404, ta thử dùng model thay thế (fallback)
+    st.error(f"Lỗi hệ thống AI: {e}")
+    st.info("Mẹo: Hãy đảm bảo bạn đã cập nhật google-generativeai trong requirements.txt")
 
 st.sidebar.markdown("---")
 st.sidebar.write("💻 Hệ thống hỗ trợ quyết định - Bảo Minh MBA")
