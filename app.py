@@ -12,7 +12,7 @@ import random
 # --- 1. CẤU HÌNH ---
 st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
 
-# THÊM DUY NHẤT: CSS ĐỂ HỖ TRỢ ZOOM TRÊN SAFARI/IPHONE
+# CSS HỖ TRỢ ZOOM ĐA NỀN TẢNG
 st.markdown("""
     <style>
     .stPlotlyChart { touch-action: pan-y; }
@@ -67,14 +67,20 @@ if "first_load" not in st.session_state:
     st.session_state.first_load = True
     st.rerun()
 
-# --- 3. BỘ TỪ ĐIỂN MÔ TẢ ---
+# --- 3. BỘ TỪ ĐIỂN MÔ TẢ TIẾNG VIỆT ---
 VI_DESCRIPTIONS = {
-    "MWG": "Thế Giới Di Động là nhà bán lẻ số 1 Việt Nam, vận hành chuỗi TGDĐ, Điện Máy Xanh và Bách Hóa Xanh.",
-    "MSN": "Tập đoàn Masan dẫn đầu ngành hàng tiêu dùng và bán lẻ (WinMart) tại Việt Nam.",
-    "VNM": "Vinamilk là doanh nghiệp sản xuất sữa lớn nhất Việt Nam với mạng lưới toàn cầu.",
-    "FPT": "Tập đoàn công nghệ và viễn thông lớn nhất Việt Nam, vươn tầm quốc tế.",
-    "HPG": "Hòa Phát là 'vua thép' Việt Nam, dẫn đầu về thị phần thép xây dựng.",
-    "VCB": "Vietcombank là ngân hàng có vốn hóa và lợi nhuận dẫn đầu hệ thống ngân hàng Việt Nam."
+    "MWG": "Thế Giới Di Động là nhà bán lẻ số 1 Việt Nam.",
+    "MSN": "Tập đoàn Masan dẫn đầu ngành hàng tiêu dùng và bán lẻ.",
+    "VNM": "Vinamilk là doanh nghiệp sữa lớn nhất Việt Nam.",
+    "FPT": "Tập đoàn công nghệ và viễn thông hàng đầu.",
+    "HPG": "Hòa Phát là tập đoàn sản xuất thép số 1 Việt Nam.",
+    "VCB": "Vietcombank là ngân hàng có vốn hóa lớn nhất VN.",
+    "GAS": "Tổng Công ty Khí Việt Nam (PV GAS).",
+    "PVD": "Tổng Công ty khoan và dịch vụ khoan Dầu khí.",
+    "PLX": "Tập đoàn Xăng dầu Việt Nam (Petrolimex).",
+    "BSR": "Lọc hóa dầu Bình Sơn.",
+    "OIL": "Tổng Công ty Dầu Việt Nam.",
+    "POW": "Tổng công ty Điện lực Dầu khí Việt Nam."
 }
 
 # --- 4. HÀM HỖ TRỢ ---
@@ -100,15 +106,19 @@ def get_news(ticker):
         return [{"title": e.title, "link": e.link} for e in feed.entries[:3]]
     except: return []
 
-# --- 5. DANH MỤC MÃ ---
+# --- 5. DANH MỤC MÃ MỞ RỘNG (GIỐNG SSI) ---
 stock_dict = {
-    "BÁN LẺ & FMCG": {"MWG": "Thế Giới Di Động", "MSN": "Masan Group", "VNM": "Vinamilk", "PNJ": "PNJ", "SAB": "Sabeco", "FRT": "FPT Retail"},
-    "CÔNG NGHỆ & THÉP": {"FPT": "FPT Corp", "HPG": "Hòa Phát", "HSG": "Hoa Sen", "NKG": "Nam Kim"},
-    "NGÂN HÀNG": {"VCB": "Vietcombank", "TCB": "Techcombank", "MBB": "MBBank", "STB": "Sacombank", "BID": "BIDV", "VPB": "VPBank", "ACB": "ACB"},
-    "BẤT ĐỘNG SẢN": {"VIC": "Vingroup", "VHM": "Vinhomes", "VRE": "Vincom Retail", "NVL": "Novaland", "PDR": "Phát Đạt", "DIG": "DIC Corp", "DXG": "Đất Xanh"},
-    "CHỨNG KHOÁN": {"SSI": "SSI", "VND": "VNDIRECT", "VCI": "Vietcap", "HCM": "HSC", "VIX": "VIX"},
-    "DẦU KHÍ": {"GAS": "PV GAS", "PVD": "PV Drilling", "PVS": "PTSC", "POW": "PV Power", "PLX": "Petrolimex"}
+    "DẦU KHÍ & NĂNG LƯỢNG": {"GAS": "PV GAS", "PVD": "PV Drilling", "PVS": "PTSC", "PLX": "Petrolimex", "BSR": "Lọc hóa dầu Bình Sơn", "OIL": "PV OIL", "POW": "PV Power"},
+    "BÁN LẺ & FMCG": {"MWG": "Thế Giới Di Động", "MSN": "Masan Group", "VNM": "Vinamilk", "PNJ": "Vàng bạc PNJ", "SAB": "Sabeco", "FRT": "FPT Retail", "DGW": "Digiworld"},
+    "NGÂN HÀNG": {"VCB": "Vietcombank", "TCB": "Techcombank", "MBB": "MBBank", "STB": "Sacombank", "BID": "BIDV", "CTG": "VietinBank", "VPB": "VPBank", "ACB": "ACB", "TPB": "TPBank"},
+    "BẤT ĐỘNG SẢN": {"VIC": "Vingroup", "VHM": "Vinhomes", "VRE": "Vincom Retail", "NVL": "Novaland", "PDR": "Phát Đạt", "DIG": "DIC Corp", "DXG": "Đất Xanh", "KDH": "Khang Điền", "NLG": "Nam Long"},
+    "THÉP & CÔNG NGHIỆP": {"HPG": "Hòa Phát", "HSG": "Hoa Sen", "NKG": "Nam Kim", "GVR": "Cao su VN", "BCM": "Becamex"},
+    "CÔNG NGHỆ & VIỄN THÔNG": {"FPT": "FPT Corp", "CTR": "Viettel Construction", "VGI": "Viettel Global", "FOX": "FPT Telecom"},
+    "CHỨNG KHOÁN": {"SSI": "Chứng khoán SSI", "VND": "VNDIRECT", "VCI": "Vietcap", "HCM": "HSC", "VIX": "VIX", "SHS": "SHS", "FTS": "FPT Securities"},
+    "ĐẦU TƯ CÔNG & VẬT LIỆU": {"HHV": "Đèo Cả", "VCG": "Vinaconex", "LCG": "LIZEN", "C4G": "CIENCO4", "HT1": "Xi măng Hà Tiên"},
+    "VẬN TẢI & CẢNG BIỂN": {"GMD": "Gemadept", "HAH": "Hải An", "VSC": "Viconship", "VJC": "Vietjet Air", "HVN": "Vietnam Airlines"}
 }
+
 all_options = [f"{t} - {n} ({g})" for g, s in stock_dict.items() for t, n in s.items()]
 
 # --- 6. SIDEBAR ---
@@ -140,7 +150,6 @@ if ma_chinh:
     if df is not None:
         g_ht = float(df['Close'].iloc[-1]); rsi_ht = float(df['RSI'].iloc[-1]); ma_ht = float(df['MA20'].iloc[-1]); lw_ht = float(df['Lower'].iloc[-1]); atr_ht = float(df['ATR'].iloc[-1])
 
-        # CẢNH BÁO MÀU SẮC
         if rsi_ht > 70: bg_color = "#feeceb"; txt_color = "#ef5350"; label = "QUÁ MUA - RỦI RO"
         elif rsi_ht < 35: bg_color = "#e8f5e9"; txt_color = "#2e7d32"; label = "VÙNG MUA AN TOÀN"
         else: bg_color = "#f0f2f6"; txt_color = "#31333f"; label = "TRẠNG THÁI CÂN BẰNG"
@@ -156,7 +165,6 @@ if ma_chinh:
         m3.metric("Sức mạnh vs MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
         m4.metric("Biến động ATR", f"{atr_ht:,.0f} VNĐ")
 
-        # NÂNG CẤP ZOOM: scrollZoom=True cho Edge/Laptop và touch-action cho Safari
         fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Nến Nhật', increasing_line_color='#26a69a', decreasing_line_color='#ef5350')])
         fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], line=dict(color='#ff9800', width=1.5), name='MA20'))
         fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=500, margin=dict(l=10, r=10, t=10, b=10), dragmode='zoom')
@@ -166,7 +174,6 @@ if ma_chinh:
         fig_vol.update_layout(height=180, template="plotly_white", margin=dict(l=10, r=10, t=0, b=10), dragmode='zoom')
         st.plotly_chart(fig_vol, use_container_width=True, config={'scrollZoom': True})
 
-        # --- PHẦN NHẬN ĐỊNH VÀ REVIEW ---
         st.markdown("---")
         if enable_compare and ma_ss:
             st.subheader(f"⚔️ Review Đối Đầu: {ma_chinh} vs {ma_ss}")
@@ -189,7 +196,6 @@ if ma_chinh:
         summary_text = f"NHẬN ĐỊNH {ma_chinh} ({now}):\n- Giá: {g_ht:,.0f} VNĐ\n- Trạng thái: {label}\n- RSI: {rsi_ht:.2f}\n- Chiến lược: Mua quanh {lw_ht:,.0f}."
         st.text_area("Nội dung báo cáo:", value=summary_text, height=120)
 
-        # --- THÔNG TIN DOANH NGHIỆP ---
         st.markdown("---")
         col_info, col_rev = st.columns([1, 1])
         with col_info:
@@ -197,7 +203,7 @@ if ma_chinh:
             try:
                 st.write(f"**Tên:** {stock_obj.info.get('longName', ma_chinh)}")
                 with st.expander("📖 Xem tóm tắt"):
-                    st.write(VI_DESCRIPTIONS.get(ma_chinh, "Mô tả tiếng Việt đang được cập nhật."))
+                    st.write(VI_DESCRIPTIONS.get(ma_chinh, "Mô tả đang được đồng bộ..."))
             except: st.info("Đang đồng bộ...")
         with col_rev:
             st.subheader("💰 Doanh thu")
