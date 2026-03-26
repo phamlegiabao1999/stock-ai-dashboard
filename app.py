@@ -45,7 +45,7 @@ if "first_load" not in st.session_state:
         "🚀 Trong đầu tư chứng khoán, kiên nhẫn đôi khi mang lại lợi nhuận cao hơn kỹ năng.",
         "📈 Bollinger Bands co thắt thường dự báo một biến động mạnh sắp diễn ra."
     ]
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
         st.markdown("<h1 style='text-align: center; font-size: 150px;'>🐂💪🔥</h1>", unsafe_allow_html=True)
@@ -78,6 +78,10 @@ def get_clean_data(ticker):
     if df is not None and not df.empty:
         df['MA20'] = df['Close'].rolling(20).mean()
         df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
+        # Tính ATR (Biến động thực tế) - 10/10 điểm kỹ thuật
+        high_low = df['High'] - df['Low']
+        df['ATR'] = high_low.rolling(14).mean()
+        # RSI
         d = df['Close'].diff(); g = (d.where(d > 0, 0)).rolling(14).mean(); l = (-d.where(d < 0, 0)).rolling(14).mean()
         df['RSI'] = 100 - (100 / (1 + (g/l)))
         return df, stock
@@ -128,26 +132,37 @@ with h_col2:
 if ma_chinh:
     df, stock_obj = get_clean_data(ma_chinh)
     if df is not None:
-        st.title(f"📊 Dashboard Phân Tích: {ma_chinh}")
-        g_ht = float(df['Close'].iloc[-1]); rsi_ht = float(df['RSI'].iloc[-1]); ma_ht = float(df['MA20'].iloc[-1]); lw_ht = float(df['Lower'].iloc[-1])
-        
-        m1, m2, m3 = st.columns(3)
+        g_ht = float(df['Close'].iloc[-1])
+        rsi_ht = float(df['RSI'].iloc[-1])
+        ma_ht = float(df['MA20'].iloc[-1])
+        lw_ht = float(df['Lower'].iloc[-1])
+        atr_ht = float(df['ATR'].iloc[-1])
+
+        # CẢNH BÁO MÀU SẮC THÔNG MINH (10/10 UI)
+        if rsi_ht > 70: bg_color = "#feeceb"; txt_color = "#ef5350"; label = "QUÁ MUA - RỦI RO"
+        elif rsi_ht < 35: bg_color = "#e8f5e9"; txt_color = "#2e7d32"; label = "VÙNG MUA AN TOÀN"
+        else: bg_color = "#f0f2f6"; txt_color = "#31333f"; label = "TRẠNG THÁI CÂN BẰNG"
+
+        st.markdown(f"""<div style="background-color:{bg_color}; padding:15px; border-radius:10px; border:1px solid {txt_color};">
+            <h2 style="color:{txt_color}; margin:0;">📊 {ma_chinh}: {label}</h2>
+            </div>""", unsafe_allow_html=True)
+        st.write("")
+
+        m1, m2, m3, m4 = st.columns(4)
         m1.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", f"{df['Close'].diff().iloc[-1]:,.0f} VNĐ")
         m2.metric("RSI (14)", f"{rsi_ht:.2f}")
-        m3.metric("So với MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
+        m3.metric("Sức mạnh vs MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
+        m4.metric("Độ biến động (ATR)", f"{atr_ht:,.0f} VNĐ")
 
-        # 8.1 Biểu đồ nến
         fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Nến Nhật', increasing_line_color='#26a69a', decreasing_line_color='#ef5350')])
         fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], line=dict(color='#ff9800', width=1.5), name='MA20'))
         fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=400, margin=dict(l=10, r=10, t=10, b=10))
         st.plotly_chart(fig, use_container_width=True)
 
-        # 8.2 BIỂU ĐỒ KHỐI LƯỢNG (Nâng cấp 1)
         fig_vol = go.Figure(data=[go.Bar(x=df.index, y=df['Volume'], marker_color='#26a69a', name='Khối lượng')])
-        fig_vol.update_layout(height=180, template="plotly_white", margin=dict(l=10, r=10, t=0, b=10))
+        fig_vol.update_layout(height=150, template="plotly_white", margin=dict(l=10, r=10, t=0, b=10))
         st.plotly_chart(fig_vol, use_container_width=True)
 
-        # --- PHẦN NHẬN ĐỊNH VÀ REVIEW ---
         st.markdown("---")
         if enable_compare and ma_ss:
             st.subheader(f"⚔️ Review Đối Đầu: {ma_chinh} vs {ma_ss}")
@@ -156,33 +171,27 @@ if ma_chinh:
                 comb = pd.concat([df['Close'], df_s['Close']], axis=1).dropna()
                 perf = pd.DataFrame({ma_chinh: (comb.iloc[:,0]/comb.iloc[0,0]-1)*100, ma_ss: (comb.iloc[:,1]/comb.iloc[0,1]-1)*100}, index=comb.index)
                 st.line_chart(perf)
-                
                 c_rev1, c_rev2 = st.columns(2)
                 with c_rev1:
-                    st.info(f"🔎 **Góc nhìn kỹ thuật:**\n- {ma_chinh} RSI: {rsi_ht:.2f} | {ma_ss} RSI: {float(df_s['RSI'].iloc[-1]):.2f}.\n- {'Sức mạnh giá của ' + ma_chinh + ' tốt hơn' if rsi_ht > float(df_s['RSI'].iloc[-1]) else ma_ss + ' đang hút tiền mạnh hơn'}.")
+                    st.info(f"🔎 **Kỹ thuật:** {ma_chinh} ({rsi_ht:.2f}) vs {ma_ss} ({float(df_s['RSI'].iloc[-1]):.2f}).")
                 with c_rev2:
                     pe_main = stock_obj.info.get('trailingPE', 'N/A')
                     pe_ss = stock_s_obj.info.get('trailingPE', 'N/A')
-                    st.success(f"💎 **Định giá MBA:**\n- P/E {ma_chinh}: {pe_main} | P/E {ma_ss}: {pe_ss}.\n- {'Định giá của ' + ma_chinh + ' hấp dẫn hơn.' if isinstance(pe_main, (int, float)) and isinstance(pe_ss, (int, float)) and pe_main < pe_ss else 'Thị trường kỳ vọng cao hơn vào đối thủ.'}")
+                    st.success(f"💎 **MBA Định giá:** P/E {ma_chinh}: {pe_main} | P/E {ma_ss}: {pe_ss}.")
         else:
             st.subheader(f"🧐 Nhận định chuyên sâu: {ma_chinh}")
             c_ind1, c_ind2 = st.columns(2)
             with c_ind1:
-                trend = "TĂNG" if g_ht > ma_ht else "GIẢM"
-                status = "QUÁ MUA (Rủi ro)" if rsi_ht > 70 else "QUÁ BÁN (Cơ hội)" if rsi_ht < 30 else "ỔN ĐỊNH"
-                st.info(f"📊 **Xu hướng hiện tại:**\n- Giá đang xu hướng {trend} ngắn hạn (MA20).\n- Trạng thái kỹ thuật: **{status}** (RSI: {rsi_ht:.2f}).")
+                st.info(f"📊 **Xu hướng:** {'TÍCH CỰC' if g_ht > ma_ht else 'TIÊU CỰC'} trên MA20. RSI cho thấy xung lực đang {'mạnh' if rsi_ht > 50 else 'yếu'}.")
             with c_ind2:
-                # ĐỊNH GIÁ & TARGET (Nâng cấp 2)
                 target_price = stock_obj.info.get('targetMeanPrice', 'N/A')
-                st.success(f"💎 **Giá trị thực & Sức khỏe:**\n- Giá mục tiêu TB: {f'{target_price:,.0f} VNĐ' if target_price != 'N/A' else 'Đang cập nhật...'}\n- Vốn hóa: {stock_obj.info.get('marketCap', 0) / 1e12:,.2f} Nghìn tỷ VNĐ.")
+                st.success(f"🎯 **Giá mục tiêu:** {f'{target_price:,.0f} VNĐ' if target_price != 'N/A' else 'N/A'} | Vốn hóa: {stock_obj.info.get('marketCap', 0) / 1e12:,.2f} Tỷ VNĐ.")
 
-        # --- BÁO CÁO NHANH CHO SALES EXEC (Nâng cấp 3) ---
         st.markdown("---")
-        st.subheader("📝 Báo cáo nhanh (Copy & Paste)")
-        summary_text = f"BẢN TIN NHANH {ma_chinh} ({now}):\n- Giá hiện tại: {g_ht:,.0f} VNĐ\n- RSI: {rsi_ht:.2f} ({'Cân bằng' if 30<rsi_ht<70 else 'Cảnh báo'})\n- Nhận định: {'Vùng giá tích cực trên MA20' if g_ht > ma_ht else 'Dưới MA20, cần quan sát thêm'}.\n- Chiến lược đề xuất: Mua quanh {lw_ht:,.0f} VNĐ."
-        st.text_area("Nội dung báo cáo gửi Đối tác/Đồng nghiệp:", value=summary_text, height=120)
+        st.subheader("📝 Báo cáo nhanh cho Sales Exec")
+        summary_text = f"NHẬN ĐỊNH {ma_chinh} ({now}):\n- Giá: {g_ht:,.0f} VNĐ\n- Trạng thái: {label}\n- RSI: {rsi_ht:.2f}\n- Biến động phiên (ATR): {atr_ht:,.0f} VNĐ.\n- Chiến lược: Mua gom quanh {lw_ht:,.0f}."
+        st.text_area("Copy nội dung này gửi cho Sếp/Đối tác:", value=summary_text, height=120)
 
-        # --- THÔNG TIN CÔNG TY & DOANH THU ---
         st.markdown("---")
         col_info, col_rev = st.columns([1, 1])
         with col_info:
@@ -190,31 +199,29 @@ if ma_chinh:
             try:
                 info = stock_obj.info
                 st.write(f"**Tên:** {info.get('longName', ma_chinh)}")
-                st.write(f"**Ngành:** {info.get('industry', 'Đa ngành')}")
                 with st.expander("📖 Xem tóm tắt tiếng Việt"):
-                    st.write(VI_DESCRIPTIONS.get(ma_chinh, "Mô tả chi tiết đang được cập nhật bằng tiếng Việt cho mã này."))
-            except: st.info("Đang đồng bộ dữ liệu...")
+                    st.write(VI_DESCRIPTIONS.get(ma_chinh, "Đang cập nhật mô tả chuyên sâu..."))
+            except: st.info("Đang đồng bộ...")
         with col_rev:
-            st.subheader("💰 Doanh thu 4 năm gần nhất")
+            st.subheader("💰 Doanh thu")
             try:
                 financials = stock_obj.financials
                 if not financials.empty:
                     rev = financials.loc['Total Revenue'].head(4)
                     rev_df = pd.DataFrame({'Năm': rev.index.year, 'Doanh thu (Tỷ)': rev.values / 1e9})
                     st.bar_chart(data=rev_df, x='Năm', y='Doanh thu (Tỷ)', color="#26a69a")
-            except: st.info("Không thể tải biểu đồ doanh thu.")
+            except: st.info("Không có biểu đồ.")
 
-        # --- CHIẾN LƯỢC & CÔNG THỨC ---
         st.markdown("---")
         col_h, col_s = st.columns(2)
         with col_h:
             st.subheader("📋 Lịch sử 5 phiên")
             st.dataframe(df[['Close', 'RSI']].tail(5), use_container_width=True)
         with col_s:
-            st.subheader("🎯 Chiến lược Giao dịch MBA")
+            st.subheader("🎯 Chiến lược Giao dịch")
             strategy_data = {"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]}
             st.table(pd.DataFrame(strategy_data))
 
         st.latex(r"RSI = 100 - \frac{100}{1 + RS}")
 
-st.sidebar.write("💻 **Bảo Minh MBA System**")
+st.sidebar.write("💻 **Bảo Minh MBA System v2.0**")
