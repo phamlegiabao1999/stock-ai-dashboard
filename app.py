@@ -11,29 +11,34 @@ from datetime import datetime
 import pytz
 import feedparser
 
-# --- 1. CẤU HÌNH HỆ THỐNG ---
+# --- 1. CẤU HÌNH ---
 st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# --- MÀN HÌNH ĐĂNG NHẬP ---
+# --- MÀN HÌNH ĐĂNG NHẬP (HỖ TRỢ PHÍM ENTER) ---
 if not st.session_state.logged_in:
     st.title("🔐 Hệ thống Phân tích Bảo Minh MBA")
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("---")
-        user = st.text_input("👤 Tài khoản (baominh):")
-        pwd = st.text_input("🔑 Mật khẩu (mba2026):", type="password")
-        if st.button("🚀 ĐĂNG NHẬP HỆ THỐNG"):
-            if user == "baominh" and pwd == "mba2026":
-                st.session_state.logged_in = True
-                st.rerun()
-            else:
-                st.error("Thông tin đăng nhập không chính xác!")
+        # Dùng form để hỗ trợ phím Enter tự động submit
+        with st.form("login_form"):
+            user = st.text_input("👤 Tài khoản:")
+            pwd = st.text_input("🔑 Mật khẩu:", type="password")
+            submit = st.form_submit_button("🚀 ĐĂNG NHẬP HỆ THỐNG", use_container_width=True)
+            
+            if submit:
+                if user == "baominh" and pwd == "mba2026":
+                    st.session_state.logged_in = True
+                    st.rerun()
+                else:
+                    st.error("Thông tin đăng nhập không chính xác!")
+        st.markdown("---")
     st.stop()
 
-# --- 2. HIỆU ỨNG LOADING (CON TRÂU CẦM TẠ) ---
+# --- 2. HIỆU ỨNG LOADING ---
 if "first_load" not in st.session_state:
     bull_gym_json_raw = """{"v": "5.7.1", "fr": 30, "ip": 0, "op": 60, "w": 500, "h": 500, "nm": "Gym Bull", "layers": [{ "ind": 1, "ty": 4, "nm": "Dumbbell", "ks": { "r": { "k": [{ "t": 0, "s": [0] }, { "t": 30, "s": [-40] }, { "t": 60, "s": [0] }] }, "p": { "k": [250, 200] } }, "shapes": [{ "ty": "gr", "it": [{ "ty": "st", "c": { "k": [0.2, 0.2, 0.2] }, "w": { "k": 20 } }, { "ty": "sh", "ks": { "k": { "v": [[-100, 0], [100, 0]] } } }] }] }, { "ind": 2, "ty": 4, "nm": "Bull", "ks": { "p": { "k": [250, 350] } }, "shapes": [{ "ty": "gr", "it": [{ "ty": "fl", "c": { "k": [0.6, 0.4, 0.2] } }, { "ty": "sh", "ks": { "k": { "v": [[0, -80], [60, 0], [0, 80], [-60, 0]], "c": true } } }] }] }]}"""
     bull_data = json.loads(bull_gym_json_raw)
@@ -50,7 +55,7 @@ if "first_load" not in st.session_state:
 
 # --- 3. HÀM HỖ TRỢ ---
 def get_clean_data(ticker):
-    if not ticker: return None
+    if not ticker or len(ticker) < 3: return None
     symbol = ticker + ".VN" if "." not in ticker else ticker
     df = yf.download(symbol, period="1y", progress=False)
     if df is not None and not df.empty:
@@ -58,8 +63,7 @@ def get_clean_data(ticker):
         df = df.copy()
         df['MA20'] = df['Close'].rolling(20).mean()
         df['STD'] = df['Close'].rolling(20).std()
-        df['Upper'] = df['MA20'] + (df['STD'] * 2)
-        df['Lower'] = df['MA20'] - (df['STD'] * 2)
+        df['Upper'] = df['MA20'] + (df['STD'] * 2); df['Lower'] = df['MA20'] - (df['STD'] * 2)
         d = df['Close'].diff(); g = (d.where(d > 0, 0)).rolling(14).mean(); l = (-d.where(d < 0, 0)).rolling(14).mean()
         df['RSI'] = 100 - (100 / (1 + (g/l)))
         return df
@@ -72,7 +76,7 @@ def get_news(ticker):
         return [{"title": e.title, "link": e.link} for e in feed.entries[:3]]
     except: return []
 
-# --- 4. DANH MỤC MÃ TOÀN DIỆN ---
+# --- 4. DANH MỤC MÃ ---
 stock_dict = {
     "BÁN LẺ & FMCG": {"MWG": "Thế Giới Di Động", "MSN": "Masan Group", "VNM": "Vinamilk", "PNJ": "PNJ", "SAB": "Sabeco", "FRT": "FPT Retail"},
     "CÔNG NGHỆ & THÉP": {"FPT": "FPT Corp", "HPG": "Hòa Phát", "HSG": "Hoa Sen", "NKG": "Nam Kim"},
@@ -86,35 +90,39 @@ for group, stocks in stock_dict.items():
     for ticker, name in stocks.items():
         all_options.append(f"{ticker} - {name} ({group})")
 
-# --- 5. SIDEBAR ---
+# --- 5. SIDEBAR (CẬP NHẬT TỰ ĐỘNG) ---
 st.sidebar.title("Chào Bảo Minh MBA!")
 choice = st.sidebar.selectbox("Chọn hoặc tìm mã:", options=all_options)
-ma_chinh = st.sidebar.text_input("Mã chính:", "").upper().strip() if choice == "Tự nhập mã khác..." else choice.split(" - ")[0]
+
+# Tự động lấy mã chính không cần nút bấm
+if choice == "Tự nhập mã khác...":
+    ma_chinh = st.sidebar.text_input("Nhập mã (VD: VJC):", value="MWG").upper().strip()
+else:
+    ma_chinh = choice.split(" - ")[0]
 
 enable_compare = st.sidebar.checkbox("⚖️ So sánh đối thủ")
 ma_ss = ""
 if enable_compare:
     comp_choice = st.sidebar.selectbox("Đối thủ:", options=[x for x in all_options if x != choice])
-    ma_ss = st.sidebar.text_input("Mã đối thủ:", "").upper().strip() if comp_choice == "Tự nhập mã khác..." else comp_choice.split(" - ")[0]
+    ma_ss = st.sidebar.text_input("Mã đối thủ:", value="MSN").upper().strip() if comp_choice == "Tự nhập mã khác..." else comp_choice.split(" - ")[0]
 
-if st.sidebar.button("🚀 Phân tích ngay"):
-    st.session_state.main_df = get_clean_data(ma_chinh)
-    if ma_ss: st.session_state.comp_df = get_clean_data(ma_ss)
-    st.sidebar.success("Đã cập nhật!")
-
+# Nút Đăng xuất
+st.sidebar.markdown("---")
 if st.sidebar.button("🔴 Đăng xuất"):
     st.session_state.logged_in = False; st.session_state.first_load = False; st.rerun()
 
-# --- 6. HEADER (GIỜ VN & TIN TỨC) ---
+# --- 6. HEADER ---
 tz = pytz.timezone('Asia/Ho_Chi_Minh')
 now = datetime.now(tz).strftime("%d/%m/%Y - %H:%M:%S")
 h_col1, h_col2 = st.columns([1, 2])
 with h_col1:
     st.markdown(f"📍 **Máy chủ:** `Hồ Chí Minh` | 📅 `{now}`")
 
-# --- 7. HIỂN THỊ CHI TIẾT ---
-if "main_df" in st.session_state:
-    df = st.session_state.main_df
+# --- 7. HIỂN THỊ (AUTO-FETCH DỮ LIỆU) ---
+if ma_chinh:
+    # Tự động tải dữ liệu khi mã thay đổi (không cần nút bấm)
+    df = get_clean_data(ma_chinh)
+    
     if df is not None:
         with h_col2:
             news = get_news(ma_chinh)
@@ -138,35 +146,33 @@ if "main_df" in st.session_state:
 
         # LỜI ĐỀ NGHỊ
         st.markdown(f"### 💡 Lời đề nghị cho {ma_chinh}")
-        if rsi_ht < 35: st.success(f"💎 **MUA:** RSI {rsi_ht:.2f} (Quá bán). Vùng gom hàng tốt.")
-        elif rsi_ht > 70: st.error(f"🔥 **BÁN:** RSI {rsi_ht:.2f} (Quá mua). Nên chốt lời.")
+        if rsi_ht < 35: st.success(f"💎 **MUA:** RSI {rsi_ht:.2f} (Quá bán).")
+        elif rsi_ht > 70: st.error(f"🔥 **BÁN:** RSI {rsi_ht:.2f} (Quá mua).")
         else: st.info(f"📈 **THEO DÕI:** RSI {rsi_ht:.2f} (Cân bằng).")
 
         # SO SÁNH
-        if enable_compare and "comp_df" in st.session_state:
-            st.markdown("---")
-            df_s = st.session_state.comp_df
-            comb = pd.concat([df['Close'], df_s['Close']], axis=1).dropna()
-            perf = pd.DataFrame({ma_chinh: (comb.iloc[:,0]/comb.iloc[0,0]-1)*100, ma_ss: (comb.iloc[:,1]/comb.iloc[0,1]-1)*100}, index=comb.index)
-            st.subheader(f"⚔️ So sánh % tăng trưởng: {ma_chinh} vs {ma_ss}")
-            st.line_chart(perf)
+        if enable_compare and ma_ss:
+            df_s = get_clean_data(ma_ss)
+            if df_s is not None:
+                st.markdown("---")
+                comb = pd.concat([df['Close'], df_s['Close']], axis=1).dropna()
+                perf = pd.DataFrame({ma_chinh: (comb.iloc[:,0]/comb.iloc[0,0]-1)*100, ma_ss: (comb.iloc[:,1]/comb.iloc[0,1]-1)*100}, index=comb.index)
+                st.subheader(f"⚔️ So sánh % tăng trưởng: {ma_chinh} vs {ma_ss}")
+                st.line_chart(perf)
 
-        # LỊCH SỬ & CÔNG THỨC
+        # LỊCH SỬ & CHIẾN LƯỢC (Giữ nguyên các bảng biểu Bảo Minh yêu cầu)
         st.markdown("---")
         col_h, col_m = st.columns(2)
         with col_h:
             st.subheader("📋 Lịch sử 5 phiên")
             st.dataframe(df[['Close', 'RSI']].tail(5), use_container_width=True)
         with col_m:
-            st.subheader("📐 Công thức & Lý thuyết")
-            st.latex(r"RSI = 100 - \frac{100}{1 + RS}")
-            with st.expander("❓ Giải thích chỉ số"):
-                st.write("RSI đo lường sức mạnh tương đối. < 30 là quá bán, > 70 là quá mua.")
-
-        # CHIẾN LƯỢC MBA
+            st.subheader("🎯 Chiến lược MBA")
+            st.table(pd.DataFrame({"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]}))
+        
         st.markdown("---")
-        st.subheader("🎯 Chiến lược Giao dịch MBA")
-        st.table(pd.DataFrame({"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]}))
+        st.subheader("📐 Công thức & Lý thuyết")
+        st.latex(r"RSI = 100 - \frac{100}{1 + RS}")
 
 st.sidebar.markdown("---")
 st.sidebar.write("💻 **Bảo Minh MBA System**")
