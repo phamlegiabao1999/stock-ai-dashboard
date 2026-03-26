@@ -12,6 +12,7 @@ import random
 # --- 1. CẤU HÌNH ---
 st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
 
+# CSS HỖ TRỢ ZOOM ĐA NỀN TẢNG (SAFARI/EDGE/COCCOC)
 st.markdown("""
     <style>
     .stPlotlyChart { touch-action: pan-y; }
@@ -41,7 +42,7 @@ if not st.session_state.logged_in:
                     st.error("Thông tin đăng nhập không chính xác!")
     st.stop()
 
-# --- 2. LOADING ---
+# --- 2. HIỆU ỨNG LOADING ---
 if "first_load" not in st.session_state:
     investment_hints = ["💡 RSI < 30 là vùng quá bán.", "📊 MA20 là đường xu hướng ngắn hạn.", "🏢 Đầu tư vào DN bạn hiểu rõ."]
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -56,20 +57,18 @@ if "first_load" not in st.session_state:
     st.session_state.first_load = True
     st.rerun()
 
-# --- 3. BỘ TỪ ĐIỂN MÔ TẢ TIẾNG VIỆT (DỰ PHÒNG CỰC MẠNH) ---
+# --- 3. BỘ TỪ ĐIỂN MÔ TẢ TIẾNG VIỆT (FIX LỖI TRẮNG THÔNG TIN) ---
 VI_DESCRIPTIONS = {
-    "MWG": "Thế Giới Di Động: Nhà bán lẻ số 1 VN (TGDĐ, ĐMX, BHX).",
-    "MSN": "Masan Group: Tập đoàn tiêu dùng, bán lẻ hàng đầu.",
-    "VNM": "Vinamilk: Doanh nghiệp sữa lớn nhất Việt Nam.",
-    "FPT": "FPT: Tập đoàn công nghệ, viễn thông và giáo dục.",
-    "HPG": "Hòa Phát: Vua thép Việt Nam, thị phần số 1.",
-    "OIL": "PV OIL: Tổng Công ty Dầu Việt Nam, đơn vị bán lẻ xăng dầu lớn thứ 2 VN sau Petrolimex.",
-    "BSR": "Lọc hóa dầu Bình Sơn: Đơn vị quản lý nhà máy lọc dầu Dung Quất.",
-    "GAS": "PV GAS: Đơn vị dẫn dắt ngành công nghiệp khí toàn quốc.",
+    "VIC": "Tập đoàn Vingroup: Hệ sinh thái đa ngành hàng đầu VN (BĐS, Xe điện VinFast, Công nghệ).",
+    "VHM": "Vinhomes: Nhà phát triển bất động sản thương mại lớn nhất Việt Nam.",
+    "VRE": "Vincom Retail: Đơn vị sở hữu và vận hành hệ thống trung tâm thương mại lớn nhất VN.",
+    "MWG": "Thế Giới Di Động: Nhà bán lẻ số 1 VN.",
+    "HPG": "Hòa Phát: Vua thép Việt Nam.",
+    "OIL": "PV OIL: Tổng Công ty Dầu Việt Nam, đơn vị bán lẻ xăng dầu lớn thứ 2 VN.",
+    "BSR": "Lọc hóa dầu Bình Sơn: Quản lý nhà máy lọc dầu Dung Quất.",
+    "GAS": "PV GAS: Tổng công ty Khí Việt Nam.",
     "PLX": "Petrolimex: Tập đoàn xăng dầu lớn nhất Việt Nam.",
-    "PVD": "PV Drilling: Tổng công ty khoan dầu khí.",
-    "PVS": "PTSC: Tổng công ty dịch vụ kỹ thuật dầu khí.",
-    "POW": "PV Power: Tổng công ty điện lực dầu khí."
+    "FPT": "FPT: Tập đoàn công nghệ hàng đầu Việt Nam."
 }
 
 # --- 4. HÀM HỖ TRỢ ---
@@ -94,11 +93,12 @@ def get_news(ticker):
         return [{"title": e.title, "link": e.link} for e in feed.entries[:3]]
     except: return []
 
-# --- 5. DANH MỤC MÃ (CHUẨN SSI) ---
+# --- 5. DANH MỤC MÃ (ĐÃ CẬP NHẬT ĐẦY ĐỦ VIC) ---
 stock_dict = {
+    "HỌ NHÀ VIN": {"VIC": "Vingroup", "VHM": "Vinhomes", "VRE": "Vincom Retail"},
     "DẦU KHÍ & NĂNG LƯỢNG": {"GAS": "PV GAS", "PVD": "PV Drilling", "PVS": "PTSC", "PLX": "Petrolimex", "BSR": "Lọc dầu Bình Sơn", "OIL": "PV OIL", "POW": "PV Power"},
-    "BÁN LẺ & FMCG": {"MWG": "Thế Giới Di Động", "MSN": "Masan Group", "VNM": "Vinamilk", "PNJ": "PNJ", "SAB": "Sabeco", "FRT": "FPT Retail"},
-    "NGÂN HÀNG": {"VCB": "Vietcombank", "TCB": "Techcombank", "MBB": "MBBank", "STB": "Sacombank", "BID": "BIDV", "CTG": "VietinBank", "VPB": "VPBank", "ACB": "ACB"},
+    "BÁN LẺ & FMCG": {"MWG": "Thế Giới Di Động", "MSN": "Masan Group", "VNM": "Vinamilk", "PNJ": "PNJ", "FRT": "FPT Retail"},
+    "NGÂN HÀNG": {"VCB": "Vietcombank", "TCB": "Techcombank", "MBB": "MBBank", "STB": "Sacombank", "BID": "BIDV", "VPB": "VPBank", "ACB": "ACB"},
     "THÉP & CÔNG NGHIỆP": {"HPG": "Hòa Phát", "HSG": "Hoa Sen", "NKG": "Nam Kim", "GVR": "Cao su VN"},
     "CÔNG NGHỆ": {"FPT": "FPT Corp", "CTR": "Viettel Construction", "VGI": "Viettel Global"},
     "CHỨNG KHOÁN": {"SSI": "SSI", "VND": "VNDIRECT", "VCI": "Vietcap", "HCM": "HSC", "VIX": "VIX"}
@@ -150,7 +150,7 @@ if ma_chinh:
         fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Nến Nhật', increasing_line_color='#26a69a', decreasing_line_color='#ef5350')])
         fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], line=dict(color='#ff9800', width=1.5), name='MA20'))
         fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=500, margin=dict(l=5, r=5, t=5, b=5), dragmode='zoom')
-        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
+        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True, 'responsive': True})
 
         fig_vol = go.Figure(data=[go.Bar(x=df.index, y=df['Volume'], marker_color='#26a69a', name='Khối lượng')])
         fig_vol.update_layout(height=180, template="plotly_white", margin=dict(l=5, r=5, t=0, b=5), dragmode='zoom')
@@ -177,13 +177,11 @@ if ma_chinh:
         st.subheader("📝 Báo cáo nhanh")
         st.text_area("Copy gửi đối tác:", value=f"NHẬN ĐỊNH {ma_chinh} ({now}): Giá {g_ht:,.0f}, RSI {rsi_ht:.2f}, Chiến lược: Mua quanh {lw_ht:,.0f}.", height=80)
 
-        # --- FIX: THÔNG TIN DOANH NGHIỆP & DOANH THU ---
         st.markdown("---")
         col_info, col_rev = st.columns([1, 1])
         with col_info:
             st.subheader("🏢 Thông tin doanh nghiệp")
-            # Ưu tiên lấy từ từ điển VI_DESCRIPTIONS nếu Yahoo trống
-            desc = VI_DESCRIPTIONS.get(ma_chinh, "Dữ liệu đang được đồng bộ...")
+            desc = VI_DESCRIPTIONS.get(ma_chinh, "Dữ liệu đang được đồng bộ từ hệ thống MBA...")
             try:
                 company_name = stock_obj.info.get('longName', ma_chinh)
                 st.write(f"**Tên:** {company_name}")
@@ -194,7 +192,6 @@ if ma_chinh:
         with col_rev:
             st.subheader("💰 Doanh thu")
             try:
-                # Ép lấy dữ liệu tài chính, nếu không có hiện thông báo nhẹ nhàng
                 financials = stock_obj.financials
                 if not financials.empty and 'Total Revenue' in financials.index:
                     rev = financials.loc['Total Revenue'].head(4)
