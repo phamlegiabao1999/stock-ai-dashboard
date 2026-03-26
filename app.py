@@ -5,37 +5,20 @@ import pandas as pd
 import numpy as np
 import google.generativeai as genai
 
-# --- 1. CẤU HÌNH AI GEMINI ---
-try:
-    # Lấy Key từ mục Secrets của Streamlit
+# --- 1. CẤU HÌNH AI ---
+if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-except Exception as e:
-    st.warning("⚠️ Chưa cấu hình GEMINI_API_KEY trong Secrets hoặc lỗi kết nối.")
+else:
+    st.warning("⚠️ Hãy cấu hình GEMINI_API_KEY trong phần Secrets của Streamlit.")
 
-# --- 2. CẤU HÌNH TRANG ---
 st.set_page_config(page_title="AI Stock - Bảo Minh", layout="wide")
 
-# --- 3. DATABASE DANH MỤC ---
+# --- 2. DATABASE DANH MỤC ---
 stock_dict = {
-    "NHÓM FMCG & BÁN LẺ": {
-        "MSN": "Masan Group", "VNM": "Vinamilk", "SAB": "Sabeco",
-        "MWG": "Thế giới di động", "MCH": "Masan Consumer", "KDC": "Kido"
-    },
-    "NHÓM CÔNG NGHỆ & SẢN XUẤT": {
-        "FPT": "FPT", "HPG": "Hòa Phát", "HSG": "Hoa Sen", "DGC": "Đức Giang"
-    },
-    "NHÓM BẤT ĐỘNG SẢN": {
-        "VIC": "Vingroup", "VHM": "Vinhomes", "VRE": "Vincom Retail",
-        "NVL": "Novaland", "PDR": "Phát Đạt", "DXG": "Đất Xanh"
-    },
-    "NHÓM NGÂN HÀNG": {
-        "VCB": "Vietcombank", "TCB": "Techcombank", "MBB": "MB Bank",
-        "STB": "Sacombank", "VPB": "VPBank", "ACB": "ACB"
-    },
-    "TIỀN ĐIỆN TỬ (CRYPTO)": {
-        "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum",
-        "SOL-USD": "Solana", "BNB-USD": "Binance Coin"
-    }
+    "FMCG & BÁN LẺ": {"MSN": "Masan", "VNM": "Vinamilk", "MWG": "MWG", "PNJ": "PNJ"},
+    "CÔNG NGHỆ & THÉP": {"FPT": "FPT", "HPG": "Hòa Phát", "HSG": "Hoa Sen"},
+    "NGÂN HÀNG": {"VCB": "Vietcombank", "TCB": "Techcombank", "MBB": "MB Bank", "ACB": "ACB"},
+    "CRYPTO": {"BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana"}
 }
 
 flat_list = []
@@ -43,128 +26,102 @@ for group, stocks in stock_dict.items():
     for ticker, name in stocks.items():
         flat_list.append(f"{ticker} - {name} ({group})")
 
-st.title("📈 AI Stock Analysis Dashboard")
+# --- 3. KHỞI TẠO BỘ NHỚ ---
+if "data" not in st.session_state: st.session_state.data = None
+if "ma_current" not in st.session_state: st.session_state.ma_current = ""
+if "messages" not in st.session_state: st.session_state.messages = []
 
-# --- 4. KHỞI TẠO BỘ NHỚ (SESSION STATE) ---
-if "data" not in st.session_state:
-    st.session_state.data = None
-if "ma_current" not in st.session_state:
-    st.session_state.ma_current = ""
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# --- 5. GIAO DIỆN TÌM KIẾM ---
-st.sidebar.header("🔍 Bộ lọc mã chứng khoán")
-search_choice = st.sidebar.selectbox("Gõ tên công ty hoặc ngành:", options=["Tự nhập mã khác..."] + flat_list)
+# --- 4. GIAO DIỆN SIDEBAR ---
+st.sidebar.header("🔍 Bộ lọc mã")
+search_choice = st.sidebar.selectbox("Chọn mã hoặc ngành:", options=["Tự nhập mã khác..."] + flat_list)
 
 if search_choice == "Tự nhập mã khác...":
-    ma_input = st.sidebar.text_input("Nhập mã (VD: HPG hoặc BTC-USD):", "").upper()
+    ma_input = st.sidebar.text_input("Nhập mã (VD: HPG):", "").upper().strip()
 else:
-    ma_input = search_choice.split(" - ")[0]
+    ma_input = search_choice.split(" - ")[0].strip()
 
 btn_analyze = st.sidebar.button("🚀 Bắt đầu phân tích")
 
-# Nếu đổi mã thì xóa dữ liệu cũ để không bị lẫn
-if ma_input != st.session_state.ma_current and ma_input != "":
-    st.session_state.data = None
-    st.session_state.messages = []
-
-# --- 6. LUỒNG XỬ LÝ DỮ LIỆU ---
-if btn_analyze or st.session_state.data is not None:
-    # Chỉ tải lại dữ liệu khi nhấn nút hoặc khi chưa có dữ liệu trong bộ nhớ
-    if btn_analyze or st.session_state.data is None:
-        with st.spinner(f'Đang phân tích dữ liệu {ma_input}...'):
-            ticker_symbol = ma_input + ".VN" if "-" not in ma_input and "." not in ma_input else ma_input
-            df_raw = yf.download(ticker_symbol, period="1y", progress=False)
+# --- 5. XỬ LÝ DỮ LIỆU ---
+if btn_analyze and ma_input:
+    # Fix lỗi tải mã trống
+    ticker_symbol = ma_input + ".VN" if "-" not in ma_input and "." not in ma_input else ma_input
+    with st.spinner(f'Đang tải dữ liệu {ma_input}...'):
+        df = yf.download(ticker_symbol, period="1y", progress=False)
+        if not df.empty:
+            # Tính chỉ số
+            df['MA20'] = df['Close'].rolling(window=20).mean()
+            df['STD'] = df['Close'].rolling(window=20).std()
+            df['Lower'] = df['MA20'] - (df['STD'] * 2)
+            df['Upper'] = df['MA20'] + (df['STD'] * 2)
+            delta = df['Close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            df['RSI'] = 100 - (100 / (1 + (gain/loss)))
             
-            if not df_raw.empty:
-                # Tính MA20 & Bollinger Bands
-                df_raw['MA20'] = df_raw['Close'].rolling(window=20).mean()
-                df_raw['STD'] = df_raw['Close'].rolling(window=20).std()
-                df_raw['Upper'] = df_raw['MA20'] + (df_raw['STD'] * 2)
-                df_raw['Lower'] = df_raw['MA20'] - (df_raw['STD'] * 2)
-                
-                # Tính RSI
-                delta = df_raw['Close'].diff()
-                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                rs = gain / loss
-                df_raw['RSI'] = 100 - (100 / (1 + rs))
-                
-                st.session_state.data = df_raw
-                st.session_state.ma_current = ma_input
-            else:
-                st.error("Không tìm thấy dữ liệu cho mã này!")
+            st.session_state.data = df
+            st.session_state.ma_current = ma_input
+            st.session_state.messages = [] # Reset chat khi đổi mã
+        else:
+            st.error(f"Không tìm thấy dữ liệu cho mã {ma_input}!")
 
-    # Hiển thị kết quả từ bộ nhớ
-    if st.session_state.data is not None:
-        data = st.session_state.data
-        gia_ht = float(data['Close'].iloc[-1])
-        rsi_ht = float(data['RSI'].iloc[-1])
-        ma20_ht = float(data['MA20'].iloc[-1])
-        lower_ht = float(data['Lower'].iloc[-1])
-        ngay_ht = data.index[-1]
+# --- 6. HIỂN THỊ KẾT QUẢ ---
+if st.session_state.data is not None:
+    df = st.session_state.data
+    g_ht = float(df['Close'].iloc[-1])
+    rsi_ht = float(df['RSI'].iloc[-1])
+    ma_ht = float(df['MA20'].iloc[-1])
+    lw_ht = float(df['Lower'].iloc[-1])
+    
+    st.title(f"📈 Phân tích mã: {st.session_state.ma_current}")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Giá hiện tại", f"{g_ht:,.0f}")
+    c2.metric("Chỉ số RSI", f"{rsi_ht:.2f}")
+    c3.metric("So với MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
 
-        st.subheader(f"Kết quả phân tích: {st.session_state.ma_current}")
-        c1, c2, c3 = st.columns(3)
-        dv = "VNĐ" if "-" not in st.session_state.ma_current else "USD"
-        c1.metric("Giá hiện tại", f"{gia_ht:,.0f} {dv}")
-        c2.metric("Chỉ số RSI", f"{rsi_ht:.2f}")
-        c3.metric("So với MA20", f"{((gia_ht/ma20_ht)-1)*100:+.2f}%")
+    # Vẽ biểu đồ
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.plot(df.index, df['Close'], label='Giá', color='#1f77b4')
+    ax.plot(df.index, df['MA20'], label='MA20', color='orange', linestyle='--')
+    ax.fill_between(df.index, df['Lower'], df['Upper'], color='gray', alpha=0.1)
+    ax.scatter(df.index[-1], g_ht, color='red', s=50)
+    ax.legend()
+    st.pyplot(fig)
 
-        # Biểu đồ kỹ thuật
-        fig, ax = plt.subplots(figsize=(14, 6))
-        ax.plot(data.index, data['Close'], label='Giá đóng cửa', color='#1f77b4', linewidth=2)
-        ax.plot(data.index, data['MA20'], label='MA20 (Xu hướng)', color='orange', linestyle='--')
-        ax.fill_between(data.index, data['Lower'], data['Upper'], color='gray', alpha=0.1)
-        
-        # Nhãn giá hiện tại trên biểu đồ
-        ax.scatter(ngay_ht, gia_ht, color='red', s=70, zorder=5)
-        ax.annotate(f"Giá: {gia_ht:,.0f}", (ngay_ht, gia_ht), xytext=(15, 5), textcoords='offset points', 
-                    color='white', weight='bold', bbox=dict(boxstyle='round,pad=0.3', fc='red', ec='none'))
-        ax.legend()
-        st.pyplot(fig)
+    # Nhận định chiến lược
+    st.markdown("---")
+    cl1, cl2 = st.columns(2)
+    with cl1:
+        st.subheader("🤖 Nhận định AI")
+        if rsi_ht < 35: st.success("Vùng quá bán - Tiềm năng tạo đáy.")
+        elif rsi_ht > 70: st.error("Vùng quá mua - Rủi ro điều chỉnh.")
+        else: st.info("Thị trường cân bằng.")
+    with cl2:
+        st.subheader("🎯 Chiến lược")
+        st.write(f"Vùng mua hỗ trợ: **{lw_ht:,.0f}**")
+        st.write(f"Ngưỡng xu hướng: **{ma_ht:,.0f}**")
 
-        # Nhận định & Chiến lược
-        st.markdown("---")
-        col_l, col_r = st.columns(2)
-        with col_l:
-            st.subheader("💡 Nhận định từ AI")
-            if rsi_ht < 35: st.success("💎 **CƠ HỘI:** RSI vùng quá bán. Tiềm năng tạo đáy.")
-            elif rsi_ht > 70: st.error("🔥 **RỦI RO:** RSI vùng quá mua. Thận trọng điều chỉnh.")
-            else: st.info("📈 **TRẠNG THÁI:** Cổ phiếu vận động ổn định.")
+    # --- 7. CHAT AI (FIX LỖI 404) ---
+    st.markdown("---")
+    st.subheader(f"💬 Hỏi đáp AI về mã {st.session_state.ma_current}")
+    
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-        with col_r:
-            st.subheader("🎯 Chiến lược tham khảo")
-            st.table(pd.DataFrame({
-                "Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"],
-                "Hành động": [f"Quanh {lower_ht:,.0f}", f"Trên {ma20_ht:,.0f}", f"Dưới {lower_ht*0.97:,.0f}"]
-            }))
+    if prompt := st.chat_input("Hỏi AI..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"): st.markdown(prompt)
 
-        # --- 7. PHẦN CHAT AI (SỬA LỖI 404) ---
-        st.markdown("---")
-        st.subheader(f"💬 Hỏi đáp Trợ lý AI về {st.session_state.ma_current}")
-
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-
-        if prompt := st.chat_input("Hỏi AI về chiến lược hoặc tin tức mã này..."):
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-
-            with st.chat_message("assistant"):
-                with st.spinner("AI đang trả lời..."):
-                    try:
-                        # Gọi model bằng tên đầy đủ để tránh lỗi 404
-                        model = genai.GenerativeModel("gemini-1.5-flash")
-                        context = f"Bạn là chuyên gia chứng khoán. Mã {st.session_state.ma_current}, Giá {gia_ht:,.0f}, RSI {rsi_ht:.2f}. Trả lời tiếng Việt, ngắn gọn."
-                        response = model.generate_content([context, prompt])
-                        st.markdown(response.text)
-                        st.session_state.messages.append({"role": "assistant", "content": response.text})
-                    except Exception as e:
-                        st.error(f"Lỗi AI: {e}. Hãy kiểm tra API Key trong Secrets.")
+        with st.chat_message("assistant"):
+            try:
+                # Dùng model name chuẩn nhất hiện tại
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                ctx = f"Mã {st.session_state.ma_current}, Giá {g_ht:,.0f}, RSI {rsi_ht:.2f}. Trả lời tiếng Việt ngắn gọn."
+                response = model.generate_content([ctx, prompt])
+                st.markdown(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
+            except Exception as e:
+                st.error(f"Lỗi AI: {e}")
 
 st.sidebar.markdown("---")
-st.sidebar.write("💻 Hệ thống hỗ trợ quyết định - Bảo Minh MBA")
+st.sidebar.write("💻 Bảo Minh MBA")
