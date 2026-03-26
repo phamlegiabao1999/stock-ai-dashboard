@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import time
-import json
+import json  # ĐÃ BỔ SUNG: Cực kỳ quan trọng để hiện con trâu
 import requests
 from streamlit_lottie import st_lottie
 from datetime import datetime
@@ -25,8 +25,8 @@ if not st.session_state.logged_in:
     with col2:
         st.markdown("---")
         with st.form("login_form"):
-            user = st.text_input("👤 Tài khoản (baominh):")
-            pwd = st.text_input("🔑 Mật khẩu (mba2026):", type="password")
+            user = st.text_input("👤 Tài khoản:")
+            pwd = st.text_input("🔑 Mật khẩu:", type="password")
             submit = st.form_submit_button("🚀 ĐĂNG NHẬP HỆ THỐNG", use_container_width=True)
             if submit:
                 if user == "baominh" and pwd == "mba2026":
@@ -37,12 +37,12 @@ if not st.session_state.logged_in:
         st.markdown("---")
     st.stop()
 
-# --- 2. HIỆU ỨNG LOADING + INVESTMENT HINTS (10 GIÂY) ---
+# --- 2. HIỆU ỨNG LOADING (10 GIÂY) ---
 if "first_load" not in st.session_state:
+    # Mã nguồn con trâu cầm tạ
     bull_gym_json_raw = """{"v": "5.7.1", "fr": 30, "ip": 0, "op": 60, "w": 500, "h": 500, "nm": "Gym Bull", "layers": [{ "ind": 1, "ty": 4, "nm": "Dumbbell", "ks": { "r": { "k": [{ "t": 0, "s": [0] }, { "t": 30, "s": [-40] }, { "t": 60, "s": [0] }] }, "p": { "k": [250, 200] } }, "shapes": [{ "ty": "gr", "it": [{ "ty": "st", "c": { "k": [0.2, 0.2, 0.2] }, "w": { "k": 20 } }, { "ty": "sh", "ks": { "k": { "v": [[-100, 0], [100, 0]] } } }] }] }, { "ind": 2, "ty": 4, "nm": "Bull", "ks": { "p": { "k": [250, 350] } }, "shapes": [{ "ty": "gr", "it": [{ "ty": "fl", "c": { "k": [0.6, 0.4, 0.2] } }, { "ty": "sh", "ks": { "k": { "v": [[0, -80], [60, 0], [0, 80], [-60, 0]], "c": true } } }] }] }]}"""
     bull_data = json.loads(bull_gym_json_raw)
     
-    # Danh sách các mẹo đầu tư (MBA Hints)
     investment_hints = [
         "💡 RSI < 30 thường là vùng quá bán, nhưng hãy đợi tín hiệu nến đảo chiều để mua.",
         "📊 MA20 là 'đường ranh giới' ngắn hạn. Giá nằm trên MA20 thể hiện xu hướng tăng.",
@@ -56,18 +56,16 @@ if "first_load" not in st.session_state:
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
-        st_lottie(bull_data, height=250)
+        # HIỂN THỊ CON TRÂU
+        st_lottie(bull_data, height=250, key="loading_bull")
         
-        # Khu vực hiển thị Mẹo
         hint_placeholder = st.empty()
         p_bar = st.progress(0)
         
-        # Chạy trong 10 giây (100 bước * 0.1s)
         for p in range(101):
-            if p % 25 == 0: # Cứ mỗi 2.5 giây đổi một mẹo mới
+            if p % 25 == 0:
                 hint_placeholder.info(random.choice(investment_hints))
-            
-            time.sleep(0.1) 
+            time.sleep(0.1) # Tổng 10 giây
             p_bar.progress(p)
             
     st.session_state.first_load = True
@@ -110,14 +108,10 @@ for group, stocks in stock_dict.items():
     for ticker, name in stocks.items():
         all_options.append(f"{ticker} - {name} ({group})")
 
-# --- 5. SIDEBAR (CẬP NHẬT TỰ ĐỘNG) ---
+# --- 5. SIDEBAR (AUTO-UPDATE) ---
 st.sidebar.title("Chào Bảo Minh MBA!")
 choice = st.sidebar.selectbox("Chọn hoặc tìm mã:", options=all_options)
-
-if choice == "Tự nhập mã khác...":
-    ma_chinh = st.sidebar.text_input("Nhập mã (VD: VJC):", value="MWG").upper().strip()
-else:
-    ma_chinh = choice.split(" - ")[0]
+ma_chinh = st.sidebar.text_input("Mã chính:", value="MWG").upper().strip() if choice == "Tự nhập mã khác..." else choice.split(" - ")[0]
 
 enable_compare = st.sidebar.checkbox("⚖️ So sánh đối thủ")
 ma_ss = ""
@@ -136,7 +130,7 @@ h_col1, h_col2 = st.columns([1, 2])
 with h_col1:
     st.markdown(f"📍 **Máy chủ:** `Hồ Chí Minh` | 📅 `{now}`")
 
-# --- 7. HIỂN THỊ VÀO APP ---
+# --- 7. HIỂN THỊ DASHBOARD ---
 if ma_chinh:
     df = get_clean_data(ma_chinh)
     if df is not None:
@@ -149,7 +143,7 @@ if ma_chinh:
         g_ht = float(df['Close'].iloc[-1]); rsi_ht = float(df['RSI'].iloc[-1]); ma_ht = float(df['MA20'].iloc[-1]); lw_ht = float(df['Lower'].iloc[-1])
         
         m1, m2, m3 = st.columns(3)
-        m1.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", f"{df['Close'].diff().iloc[-1]:,.0f}")
+        m1.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", f"{df['Close'].diff().iloc[-1]:,.0f} VNĐ")
         m2.metric("RSI (14)", f"{rsi_ht:.2f}")
         m3.metric("So với MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
 
