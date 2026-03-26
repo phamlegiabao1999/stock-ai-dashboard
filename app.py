@@ -1,48 +1,58 @@
 import streamlit as st
 import yfinance as yf
-import pandas as pd
-import pandas_ta as ta
 import matplotlib.pyplot as plt
 
+# Cấu hình trang
 st.set_page_config(page_title="AI Stock - Bảo Minh", layout="wide")
-
 st.title("📈 AI Stock Analysis Dashboard")
-st.sidebar.header("🔍 Tìm kiếm mã")
 
-# Nhập mã
+# Thanh công cụ bên trái
+st.sidebar.header("🔍 Tìm kiếm mã")
 ma_nhap = st.sidebar.text_input("Nhập mã (VD: VIC, FPT, HPG, BTC-USD)", "FPT").upper()
 ticker = ma_nhap + ".VN" if "." not in ma_nhap and "-" not in ma_nhap else ma_nhap
 
 if st.sidebar.button("Phân tích"):
-    data = yf.download(ticker, period="1y", interval="1d", progress=False)
+    # Tải dữ liệu từ Yahoo Finance
+    data = yf.download(ticker, period="1y", progress=False)
     
     if not data.empty:
-        # Chỉ báo
-        data.ta.bbands(length=20, append=True)
-        data.ta.rsi(length=14, append=True)
-        
+        # TÍNH TOÁN CÔNG THỨC THUẦN (Không dùng thư viện ngoài)
+        data['MA20'] = data['Close'].rolling(window=20).mean()
+        data['STD'] = data['Close'].rolling(window=20).std()
+        data['Upper'] = data['MA20'] + (data['STD'] * 2)
+        data['Lower'] = data['MA20'] - (data['STD'] * 2)
+
         gia_ht = float(data['Close'].iloc[-1].item())
-        rsi_ht = float(data['RSI_14'].iloc[-1].item())
-        lower_b = float(data['BBL_20_2.0'].iloc[-1].item())
+        ma20_ht = float(data['MA20'].iloc[-1].item())
 
-        # Hiển thị
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Giá Hiện Tại", f"{gia_ht:,.0f}")
-        col2.metric("Chỉ số RSI", f"{rsi_ht:.2f}")
-        col3.metric("Hỗ trợ MA20", f"{data['BBM_20_2.0'].iloc[-1]:,.0f}")
+        # Hiển thị các chỉ số chính
+        col1, col2 = st.columns(2)
+        col1.metric("Giá Hiện Tại", f"{gia_ht:,.0f} VNĐ")
+        col2.metric("Trung bình MA20", f"{ma20_ht:,.0f} VNĐ")
 
-        # Khuyến nghị
-        if gia_ht <= lower_b * 1.02 and rsi_ht < 40:
-            st.success("✅ GỢI Ý: NÊN MUA")
-        elif rsi_ht > 70:
-            st.error("❌ GỢI Ý: QUÁ ĐẮT - KHÔNG MUA")
+        # Đưa ra lời khuyên AI
+        st.subheader("🤖 Nhận định từ AI")
+        if gia_ht > ma20_ht:
+            st.success(f"✅ XU HƯỚNG TĂNG: Giá {ma_nhap} đang nằm trên đường trung bình 20 phiên.")
         else:
-            st.warning("🟡 GỢI Ý: THEO DÕI THÊM")
+            st.warning(f"📉 XU HƯỚNG GIẢM: Giá {ma_nhap} đang chịu áp lực điều chỉnh.")
 
-        # Biểu đồ
+        # Vẽ biểu đồ kỹ thuật
+        st.subheader("📊 Biểu đồ biến động 1 năm")
         fig, ax = plt.subplots(figsize=(12, 5))
-        ax.plot(data['Close'], label='Giá', color='blue')
-        ax.fill_between(data.index, data['BBL_20_2.0'], data['BBU_20_2.0'], color='gray', alpha=0.2)
+        ax.plot(data['Close'], label='Giá thị trường', color='#1f77b4', linewidth=2)
+        ax.plot(data['MA20'], label='Đường xu hướng MA20', color='#ff7f0e', linestyle='--')
+        ax.fill_between(data.index, data['Lower'], data['Upper'], color='gray', alpha=0.1, label='Vùng Bollinger Bands')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
         st.pyplot(fig)
+        
+        # Hiển thị bảng dữ liệu cuối
+        with st.expander("Xem bảng giá 5 phiên gần nhất"):
+            st.write(data[['Open', 'High', 'Low', 'Close', 'Volume']].tail(5))
     else:
-        st.error("Không tìm thấy dữ liệu.")
+        st.error(f"Không tìm thấy dữ liệu cho mã {ticker}. Bảo kiểm tra lại mã nhé!")
+
+# Ghi chú chân trang
+st.sidebar.markdown("---")
+st.sidebar.write("💻 Phát triển bởi: Phạm Lê Gia Bảo")
