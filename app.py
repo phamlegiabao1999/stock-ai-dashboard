@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import time
-import requests
 from datetime import datetime
 import pytz
 import feedparser
@@ -35,7 +34,7 @@ if not st.session_state.logged_in:
                     st.error("Thông tin đăng nhập không chính xác!")
     st.stop()
 
-# --- 2. HIỆU ỨNG LOADING (10 GIÂY - DÙNG MÃ NHÚNG HTML SIÊU BỀN) ---
+# --- 2. HIỆU ỨNG LOADING (10 GIÂY - DÙNG CODE THUẦN SIÊU BỀN) ---
 if "first_load" not in st.session_state:
     investment_hints = [
         "💡 RSI < 30 thường là vùng quá bán, nhưng hãy đợi tín hiệu nến đảo chiều để mua.",
@@ -51,12 +50,10 @@ if "first_load" not in st.session_state:
     with col2:
         st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
         
-        # SỬA LỖI TẠI ĐÂY: Dùng Iframe HTML để đảm bảo luôn hiện hình
-        # Đây là hình con trâu tập tạ cực sung
-        st.markdown(
-            '<center><iframe src="https://giphy.com/embed/L0H7L6pW8X8o8k8U8S" width="480" height="480" frameBorder="0" class="giphy-embed" allowFullScreen></iframe></center>',
-            unsafe_allow_html=True
-        )
+        # SỬA LỖI DỨT ĐIỂM: Dùng Emoji khổng lồ thay cho GIF bị lỗi
+        # Con trâu (Bull) và Tạ (Dumbbell) rực lửa
+        st.markdown("<h1 style='text-align: center; font-size: 150px;'>🐂💪🔥</h1>", unsafe_allow_html=True)
+        st.balloons() # Thêm hiệu ứng bóng bay ăn mừng đăng nhập
         
         hint_placeholder = st.empty()
         p_bar = st.progress(0)
