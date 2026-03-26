@@ -23,14 +23,14 @@ if not st.session_state.logged_in:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("---")
-        user = st.text_input("👤 Tài khoản (baominh):")
-        pwd = st.text_input("🔑 Mật khẩu (mba2026):", type="password")
+        user = st.text_input("👤 Tài khoản:")
+        pwd = st.text_input("🔑 Mật khẩu:", type="password")
         if st.button("🚀 ĐĂNG NHẬP HỆ THỐNG"):
             if user == "baominh" and pwd == "mba2026":
                 st.session_state.logged_in = True
                 st.rerun()
             else:
-                st.error("Sai thông tin đăng nhập!")
+                st.error("Thông tin đăng nhập không chính xác!")
     st.stop()
 
 # --- 2. HIỆU ỨNG LOADING (CHỈ HIỆN LẦN ĐẦU) ---
@@ -48,7 +48,7 @@ if "first_load" not in st.session_state:
     bull_data = json.loads(bull_gym_json_raw)
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang quét dữ liệu...</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
         st_lottie(bull_data, height=250)
         p_bar = st.progress(0)
         for p in range(100):
@@ -97,30 +97,36 @@ ma_ss = st.sidebar.selectbox("Đối thủ:", options=[x for x in flat_list if x
 if st.sidebar.button("🚀 Phân tích ngay"):
     st.session_state.main_df = get_clean_data(ma_chinh)
     if enable_compare: st.session_state.comp_df = get_clean_data(ma_ss)
-    st.sidebar.success("Đã cập nhật dữ liệu!")
+    st.sidebar.success("Cập nhật thành công!")
 
 if st.sidebar.button("🔴 Đăng xuất"):
     st.session_state.logged_in = False; st.session_state.first_load = False; st.rerun()
 
-# --- 5. HEADER & TIN TỨC ---
+# --- 5. HEADER (FIX GIỜ VN & TIN TỨC XUỐNG DÒNG) ---
 tz = pytz.timezone('Asia/Ho_Chi_Minh')
 now = datetime.now(tz).strftime("%d/%m/%Y - %H:%M:%S")
 
-h_col1, h_col2 = st.columns([1, 3])
+h_col1, h_col2 = st.columns([1, 2])
 with h_col1:
-    st.markdown(f"📅 **Giờ VN:** `{now}`")
+    st.markdown(f"📍 **Khu vực:** `Hồ Chí Minh (VN)`")
+    st.markdown(f"📅 **Thời gian:** `{now}`")
+
 with h_col2:
+    st.markdown(f"📰 **Tin tức mới nhất ({ma_chinh}):**")
     news = get_news(ma_chinh)
     if news:
-        news_links = " | ".join([f"<a href='{n['link']}' target='_blank' style='color:#4CAF50;text-decoration:none;'>{n['title'][:45]}...</a>" for n in news])
-        st.markdown(f"📰 **Tin {ma_chinh}:** {news_links}", unsafe_allow_html=True)
+        for n in news:
+            # Mỗi tin tức một dòng riêng biệt có dấu gạch đầu dòng
+            st.markdown(f"● <a href='{n['link']}' target='_blank' style='color:#4CAF50; text-decoration:none;'>{n['title']}</a>", unsafe_allow_html=True)
+    else:
+        st.write("Đang cập nhật tin tức...")
 
 # --- 6. NỘI DUNG CHÍNH ---
 if "main_df" in st.session_state:
     df = st.session_state.main_df
     g_ht = float(df['Close'].iloc[-1]); rsi_ht = float(df['RSI'].iloc[-1]); ma_ht = float(df['MA20'].iloc[-1]); lw_ht = float(df['Lower'].iloc[-1])
     
-    st.title(f"📊 Dashboard: {ma_chinh}")
+    st.title(f"📊 Dashboard Phân Tích: {ma_chinh}")
     
     # Metrics
     m1, m2, m3 = st.columns(3)
