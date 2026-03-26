@@ -2,5 +2,4 @@ streamlit
 yfinance
 matplotlib
 pandas
-pandas-ta
-ccxt
+numpy
