@@ -3,17 +3,18 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from google import genai # Thư viện mới chuẩn 2026
+from google import genai  # Thư viện chuẩn mới
 
 # --- 1. CẤU HÌNH AI ---
 if "GEMINI_API_KEY" in st.secrets:
+    # Khởi tạo client theo chuẩn google-genai mới
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 else:
     st.warning("⚠️ Chưa cấu hình GEMINI_API_KEY trong Secrets.")
 
 st.set_page_config(page_title="AI Stock - Bảo Minh", layout="wide")
 
-# (Giữ nguyên phần stock_dict cũ của bạn...)
+# (Phần stock_dict giữ nguyên)
 stock_dict = {
     "FMCG & BÁN LẺ": {"MSN": "Masan", "VNM": "Vinamilk", "MWG": "MWG", "PNJ": "PNJ", "KDC": "Kido"},
     "CÔNG NGHỆ & THÉP": {"FPT": "FPT", "HPG": "Hòa Phát", "HSG": "Hoa Sen", "DGC": "Đức Giang"},
@@ -62,10 +63,10 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
 
     if st.session_state.data is not None:
         df = st.session_state.data
-        g_ht = float(df['Close'].iloc[-1].item())
-        rsi_ht = float(df['RSI'].iloc[-1].item())
-        ma_ht = float(df['MA20'].iloc[-1].item())
-        lw_ht = float(df['Lower'].iloc[-1].item())
+        g_ht = float(df['Close'].iloc[-1])
+        rsi_ht = float(df['RSI'].iloc[-1])
+        ma_ht = float(df['MA20'].iloc[-1])
+        lw_ht = float(df['Lower'].iloc[-1])
         
         st.title(f"📈 {st.session_state.ma_current}")
         c1, c2, c3 = st.columns(3)
@@ -98,7 +99,7 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
                 "Giá": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]
             }))
 
-        # --- 5. CHAT AI (SỬA LỖI 404) ---
+        # --- 5. CHAT AI (SỬA LỖI 404 CUỐI CÙNG) ---
         st.markdown("---")
         st.subheader(f"💬 Chat AI: {st.session_state.ma_current}")
         for msg in st.session_state.messages:
@@ -110,10 +111,10 @@ if (btn_analyze or st.session_state.data is not None) and ma_input:
 
             with st.chat_message("assistant"):
                 try:
-                    # Cách gọi chuẩn của thư viện google-genai mới
+                    # FIX 404: Bỏ chữ 'models/' chỉ để lại tên model
                     response = client.models.generate_content(
-                        model="gemini-1.5-flash",
-                        contents=f"Mã {st.session_state.ma_current}, Giá {g_ht}, RSI {rsi_ht}. Câu hỏi: {prompt}"
+                        model="gemini-1.5-flash", 
+                        contents=f"Mã {st.session_state.ma_current}, Giá {g_ht:,.0f}, RSI {rsi_ht:.2f}. {prompt}"
                     )
                     st.markdown(response.text)
                     st.session_state.messages.append({"role": "assistant", "content": response.text})
