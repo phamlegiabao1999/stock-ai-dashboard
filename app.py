@@ -35,7 +35,7 @@ if not st.session_state.logged_in:
                     st.error("Thông tin đăng nhập không chính xác!")
     st.stop()
 
-# --- 2. HIỆU ỨNG LOADING (10 GIÂY VỚI GIF SIÊU BỀN) ---
+# --- 2. HIỆU ỨNG LOADING (10 GIÂY - DÙNG MÃ NHÚNG HTML SIÊU BỀN) ---
 if "first_load" not in st.session_state:
     investment_hints = [
         "💡 RSI < 30 thường là vùng quá bán, nhưng hãy đợi tín hiệu nến đảo chiều để mua.",
@@ -51,12 +51,12 @@ if "first_load" not in st.session_state:
     with col2:
         st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
         
-        # THAY ĐỔI TẠI ĐÂY: Dùng link GIF dự phòng siêu bền
-        gif_url = "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHpueG5kbXpnd3Z3Ym1icm90ZjF6bm5pM3R6eWxtZ3R4ZnN0bjRjdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw,L0H7L6pW8X8o8k8U8S/giphy.gif"
-        try:
-            st.image(gif_url, use_container_width=True)
-        except:
-            st.markdown("<h1 style='text-align: center;'>🐂🏋️‍♂️</h1>", unsafe_allow_html=True)
+        # SỬA LỖI TẠI ĐÂY: Dùng Iframe HTML để đảm bảo luôn hiện hình
+        # Đây là hình con trâu tập tạ cực sung
+        st.markdown(
+            '<center><iframe src="https://giphy.com/embed/L0H7L6pW8X8o8k8U8S" width="480" height="480" frameBorder="0" class="giphy-embed" allowFullScreen></iframe></center>',
+            unsafe_allow_html=True
+        )
         
         hint_placeholder = st.empty()
         p_bar = st.progress(0)
@@ -166,13 +166,16 @@ if ma_chinh:
                 st.line_chart(perf)
 
         st.markdown("---")
-        col_h, col_m = st.columns(2)
-        with col_h:
-            st.subheader("📋 Lịch sử 5 phiên")
-            st.dataframe(df[['Close', 'RSI']].tail(5), use_container_width=True)
-        with col_m:
-            st.subheader("🎯 Chiến lược MBA")
-            st.table(pd.DataFrame({"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]}))
+        st.subheader("📋 Lịch sử 5 phiên")
+        st.dataframe(df[['Close', 'RSI']].tail(5), use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("🎯 Chiến lược Giao dịch MBA")
+        strategy_data = {
+            "Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"],
+            "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]
+        }
+        st.table(pd.DataFrame(strategy_data))
         
         st.markdown("---")
         st.subheader("📐 Công thức & Lý thuyết")
