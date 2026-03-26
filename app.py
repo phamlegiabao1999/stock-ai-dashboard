@@ -7,7 +7,7 @@ import google.generativeai as genai
 
 # --- 1. CẤU HÌNH API GEMINI (LẤY TỪ STREAMLIT SECRETS) ---
 try:
-    genai.configure(api_key=st.secrets["AIzaSyBofdrgMl79qQoRzuVGu2sDgLGdkfdyuM8"])
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 except:
     st.warning("⚠️ Chưa cấu hình GEMINI_API_KEY trong phần Secrets của Streamlit.")
 
