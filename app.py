@@ -78,10 +78,8 @@ def get_clean_data(ticker):
     if df is not None and not df.empty:
         df['MA20'] = df['Close'].rolling(20).mean()
         df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
-        # Tính ATR (Biến động thực tế) - 10/10 điểm kỹ thuật
         high_low = df['High'] - df['Low']
         df['ATR'] = high_low.rolling(14).mean()
-        # RSI
         d = df['Close'].diff(); g = (d.where(d > 0, 0)).rolling(14).mean(); l = (-d.where(d < 0, 0)).rolling(14).mean()
         df['RSI'] = 100 - (100 / (1 + (g/l)))
         return df, stock
@@ -138,7 +136,6 @@ if ma_chinh:
         lw_ht = float(df['Lower'].iloc[-1])
         atr_ht = float(df['ATR'].iloc[-1])
 
-        # CẢNH BÁO MÀU SẮC THÔNG MINH (10/10 UI)
         if rsi_ht > 70: bg_color = "#feeceb"; txt_color = "#ef5350"; label = "QUÁ MUA - RỦI RO"
         elif rsi_ht < 35: bg_color = "#e8f5e9"; txt_color = "#2e7d32"; label = "VÙNG MUA AN TOÀN"
         else: bg_color = "#f0f2f6"; txt_color = "#31333f"; label = "TRẠNG THÁI CÂN BẰNG"
@@ -154,15 +151,33 @@ if ma_chinh:
         m3.metric("Sức mạnh vs MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
         m4.metric("Độ biến động (ATR)", f"{atr_ht:,.0f} VNĐ")
 
+        # --- NÂNG CẤP ZOOM BIỂU ĐỒ NẾN ---
         fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Nến Nhật', increasing_line_color='#26a69a', decreasing_line_color='#ef5350')])
         fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], line=dict(color='#ff9800', width=1.5), name='MA20'))
-        fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=400, margin=dict(l=10, r=10, t=10, b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        
+        fig.update_layout(
+            template="plotly_white", 
+            xaxis_rangeslider_visible=False, 
+            height=500, 
+            margin=dict(l=10, r=10, t=10, b=10),
+            dragmode='zoom', # Chế độ kéo để zoom mặc định
+            hovermode='x unified'
+        )
+        
+        # Cấu hình config để hỗ trợ Super Zoom (Lăn chuột + Touch)
+        st.plotly_chart(fig, use_container_width=True, config={
+            'scrollZoom': True,           # Cho phép lăn chuột để zoom
+            'displayModeBar': True,       # Hiện thanh công cụ để chọn chế độ Pan/Zoom
+            'modeBarButtonsToAdd': ['drawline', 'drawopenpath', 'eraseshape'],
+            'responsive': True
+        })
 
+        # --- NÂNG CẤP ZOOM BIỂU ĐỒ KHỐI LƯỢNG ---
         fig_vol = go.Figure(data=[go.Bar(x=df.index, y=df['Volume'], marker_color='#26a69a', name='Khối lượng')])
-        fig_vol.update_layout(height=150, template="plotly_white", margin=dict(l=10, r=10, t=0, b=10))
-        st.plotly_chart(fig_vol, use_container_width=True)
+        fig_vol.update_layout(height=180, template="plotly_white", margin=dict(l=10, r=10, t=0, b=10), dragmode='zoom')
+        st.plotly_chart(fig_vol, use_container_width=True, config={'scrollZoom': True})
 
+        # --- PHẦN NHẬN ĐỊNH VÀ REVIEW ---
         st.markdown("---")
         if enable_compare and ma_ss:
             st.subheader(f"⚔️ Review Đối Đầu: {ma_chinh} vs {ma_ss}")
