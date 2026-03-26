@@ -39,12 +39,10 @@ def get_clean_data(ticker):
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         df = df.copy()
-        # Chỉ số kỹ thuật
         df['MA20'] = df['Close'].rolling(window=20).mean()
         df['STD'] = df['Close'].rolling(window=20).std()
         df['Upper'] = df['MA20'] + (df['STD'] * 2)
         df['Lower'] = df['MA20'] - (df['STD'] * 2)
-        # RSI
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -58,16 +56,28 @@ if btn_analyze or "main_df" in st.session_state:
         st.session_state.main_df = get_clean_data(ma_chinh)
         st.session_state.name_chinh = ma_chinh
         if enable_compare and ma_ss:
-            st.session_state.compare_df = get_stock_data(ma_ss) if 'get_stock_data' in globals() else get_clean_data(ma_ss)
+            st.session_state.compare_df = get_clean_data(ma_ss)
             st.session_state.name_ss = ma_ss
         else:
             st.session_state.compare_df = None
 
     df = st.session_state.main_df
     if df is not None:
+        # LẤY GIÁ TRỊ HIỆN TẠI
+        g_ht = float(df['Close'].iloc[-1])
+        rsi_ht = float(df['RSI'].iloc[-1])
+        ma_ht = float(df['MA20'].iloc[-1])
+        
         st.title(f"📊 Dashboard Phân Tích: {st.session_state.name_chinh}")
 
+        # --- KHU VỰC GIÁ HIỆN TẠI (CARD CHỈ SỐ) ---
+        c_price, c_rsi, c_ma = st.columns(3)
+        c_price.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", delta=f"{df['Close'].diff().iloc[-1]:,.0f} VNĐ")
+        c_rsi.metric("Chỉ số RSI (14)", f"{rsi_ht:.2f}")
+        c_ma.metric("So với MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
+
         # --- BIỂU ĐỒ NẾN ---
+        st.markdown("---")
         fig = go.Figure(data=[go.Candlestick(
             x=df.index, open=df['Open'], high=df['High'],
             low=df['Low'], close=df['Close'], name='Giá nến',
@@ -77,15 +87,14 @@ if btn_analyze or "main_df" in st.session_state:
         fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=450, margin=dict(l=10, r=10, t=10, b=10))
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- LỜI ĐỀ NGHỊ (KHUYẾN NGHỊ) ---
-        rsi_ht = float(df['RSI'].iloc[-1])
+        # --- LỜI ĐỀ NGHỊ HÀNH ĐỘNG ---
         st.markdown("### 💡 Lời đề nghị hành động")
         if rsi_ht < 35:
-            st.success(f"💎 **MUA:** RSI ({rsi_ht:.2f}) đang ở vùng quá bán. Đây là cơ hội tích lũy cổ phiếu ở vùng giá hấp dẫn.")
+            st.success(f"💎 **MUA:** RSI ({rsi_ht:.2f}) Quá bán. Cơ hội tích lũy.")
         elif rsi_ht > 70:
-            st.error(f"🔥 **BÁN:** RSI ({rsi_ht:.2f}) đã vào vùng quá mua. Cần thận trọng chốt lời hoặc giảm tỷ trọng.")
+            st.error(f"🔥 **BÁN:** RSI ({rsi_ht:.2f}) Quá mua. Cần thận trọng.")
         else:
-            st.info(f"📈 **THEO DÕI:** RSI ({rsi_ht:.2f}) đang ở trạng thái cân bằng. Ưu tiên nắm giữ và quan sát thêm.")
+            st.info(f"📈 **THEO DÕI:** RSI ({rsi_ht:.2f}) Cân bằng. Ưu tiên nắm giữ.")
 
         # --- SO SÁNH (%) ---
         if st.session_state.get('compare_df') is not None:
@@ -104,24 +113,20 @@ if btn_analyze or "main_df" in st.session_state:
         # --- LỊCH SỬ & CÔNG THỨC ---
         st.markdown("---")
         col_hist, col_math = st.columns(2)
-        
         with col_hist:
             st.subheader("📋 Lịch sử 5 phiên gần nhất")
             st.dataframe(df[['Close', 'RSI']].tail(5), use_container_width=True)
-            
         with col_math:
             st.subheader("📐 Công thức & Lý thuyết")
             st.latex(r"RSI = 100 - \frac{100}{1 + RS}")
-            st.caption("Chỉ số sức mạnh tương đối (RSI) dùng để đo lường mức độ thay đổi giá.")
 
         # --- CHIẾN LƯỢC CHI TIẾT ---
         st.markdown("---")
         st.subheader("🎯 Chiến lược Giao dịch MBA")
         lw_ht = float(df['Lower'].iloc[-1])
-        ma_ht = float(df['MA20'].iloc[-1])
         plan = pd.DataFrame({
             "Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"],
-            "Mức giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Duy trì trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]
+            "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]
         })
         st.table(plan)
 
