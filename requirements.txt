@@ -8,3 +8,4 @@ datetime
 pytz
 feedparser
 beautifulsoup4
+streamlit-cookies-controller
