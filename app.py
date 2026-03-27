@@ -7,21 +7,16 @@ import time
 from datetime import datetime
 import pytz
 import feedparser
-from streamlit_cookies_controller import CookieController
 
-# --- 1. CẤU HÌNH & KIỂM TRA COOKIE ---
-st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
-controller = CookieController()
+# --- 1. CẤU HÌNH & HỆ THỐNG GHI NHỚ ---
+st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide", page_icon="🐂")
 
-# Đợi một nhịp rất nhỏ để cookie sẵn sàng
-time.sleep(0.2)
+# Kiểm tra "đuôi" link bí mật
+query_params = st.query_params
+is_verified = query_params.get("auth") == "verified"
 
 if "logged_in" not in st.session_state:
-    token = controller.get('auth_token')
-    if token == "baominh_mba_2026_verified":
-        st.session_state.logged_in = True
-    else:
-        st.session_state.logged_in = False
+    st.session_state.logged_in = is_verified
 
 # CSS HỖ TRỢ ZOOM
 st.markdown("""
@@ -41,14 +36,13 @@ if not st.session_state.logged_in:
         with st.form("login_form"):
             user = st.text_input("👤 Tài khoản (baominh):")
             pwd = st.text_input("🔑 Mật khẩu (mba2026):", type="password")
-            remember = st.checkbox("Ghi nhớ đăng nhập trên thiết bị này", value=True)
-            submit = st.form_submit_button("🚀 ĐĂNG NHẬP HỆ THỐNG", use_container_width=True)
+            submit = st.form_submit_button("🚀 ĐĂNG NHẬP & GHI NHỚ", use_container_width=True)
             
             if submit:
                 if user == "baominh" and pwd == "mba2026":
                     st.session_state.logged_in = True
-                    if remember:
-                        controller.set('auth_token', 'baominh_mba_2026_verified', max_age=2592000)
+                    # Gắn đuôi bí mật vào link
+                    st.query_params["auth"] = "verified"
                     st.rerun()
                 else:
                     st.error("Thông tin đăng nhập không chính xác!")
@@ -58,9 +52,8 @@ if not st.session_state.logged_in:
 if "first_load" not in st.session_state:
     st.balloons()
     st.session_state.first_load = True
-    # Không rerun ở đây để tránh loop vô tận khi dùng cookie
 
-# --- 3. BỘ TỪ ĐIỂN MÔ TẢ TIẾNG VIỆT ---
+# --- 3. BỘ TỪ ĐIỂN MÔ TẢ (Giữ nguyên) ---
 VI_DESCRIPTIONS = {
     "VIC": "Tập đoàn Vingroup: Hệ sinh thái đa ngành hàng đầu VN (BĐS, Xe điện VinFast, Công nghệ).",
     "VHM": "Vinhomes: Nhà phát triển bất động sản thương mại lớn nhất Việt Nam.",
@@ -74,22 +67,22 @@ VI_DESCRIPTIONS = {
     "FPT": "FPT: Tập đoàn công nghệ hàng đầu Việt Nam."
 }
 
-# --- 4. HÀM HỖ TRỢ (FIX LỖI SERIALIZABLE) ---
+# --- 4. HÀM HỖ TRỢ (FIX LỖI CACHE) ---
 @st.cache_data(ttl=600)
 def get_stock_df(symbol):
-    """Chỉ cache DataFrame (Dữ liệu thô), không cache object Yahoo"""
-    stock = yf.Ticker(symbol)
-    df = stock.history(period="1y")
-    if df is not None and not df.empty:
-        # Tính toán chỉ số ngay trong cache để tối ưu tốc độ
-        df['MA20'] = df['Close'].rolling(20).mean()
-        df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
-        df['ATR'] = (df['High'] - df['Low']).rolling(14).mean()
-        delta = df['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-        df['RSI'] = 100 - (100 / (1 + (gain/loss)))
-        return df
+    try:
+        stock = yf.Ticker(symbol)
+        df = stock.history(period="1y")
+        if df is not None and not df.empty:
+            df['MA20'] = df['Close'].rolling(20).mean()
+            df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
+            df['ATR'] = (df['High'] - df['Low']).rolling(14).mean()
+            delta = df['Close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+            df['RSI'] = 100 - (100 / (1 + (gain/loss)))
+            return df
+    except: return None
     return None
 
 def get_news(ticker):
@@ -112,14 +105,14 @@ all_options = [f"{t} - {n} ({g})" for g, s in stock_dict.items() for t, n in s.i
 
 # --- 6. SIDEBAR ---
 st.sidebar.title("Chào Bảo Minh MBA!")
-ma_chinh_choice = st.sidebar.selectbox("Chọn mã phân tích chính:", options=all_options)
+ma_chinh_choice = st.sidebar.selectbox("Mã phân tích chính:", options=all_options)
 ma_chinh = ma_chinh_choice.split(" - ")[0]
 enable_compare = st.sidebar.checkbox("⚖️ So sánh đối thủ")
 ma_ss = st.sidebar.selectbox("Chọn đối thủ:", options=[x for x in all_options if x != ma_chinh_choice]).split(" - ")[0] if enable_compare else ""
 
-if st.sidebar.button("🔴 Đăng xuất"):
+if st.sidebar.button("🔴 Đăng xuất & Xóa ghi nhớ"):
     st.session_state.logged_in = False
-    controller.remove('auth_token')
+    st.query_params.clear()
     st.rerun()
 
 # --- 7. HEADER ---
@@ -138,10 +131,8 @@ symbol_vn = ma_chinh + ".VN"
 df = get_stock_df(symbol_vn)
 
 if df is not None:
-    # Lấy thông tin tài chính (Không cache phần này để tránh lỗi)
     stock_obj = yf.Ticker(symbol_vn)
-    
-    g_ht = float(df['Close'].iloc[-1]); rsi_ht = float(df['RSI'].iloc[-1]); ma_ht = float(df['MA20'].iloc[-1]); lw_ht = float(df['Lower'].iloc[-1]); atr_ht = float(df['ATR'].iloc[-1])
+    g_ht = float(df['Close'].iloc[-1]); rsi_ht = float(df['RSI'].iloc[-1]); ma_ht = float(df['MA20'].iloc[-1]); lw_ht = float(df['Lower'].iloc[-1])
 
     # Status UI
     if rsi_ht > 70: bg, txt, lb = "#feeceb", "#ef5350", "QUÁ MUA - RỦI RO"
@@ -150,35 +141,22 @@ if df is not None:
 
     st.markdown(f"""<div style="background-color:{bg}; padding:15px; border-radius:10px; border:1px solid {txt}; color:{txt};">
         <h2 style="margin:0;">📊 {ma_chinh}: {lb}</h2></div>""", unsafe_allow_html=True)
-    st.write("")
-
-    m1, m2, m3, m4 = st.columns(4)
+    
+    m1, m2, m3 = st.columns(3)
     m1.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", f"{df['Close'].diff().iloc[-1]:,.0f} VNĐ")
     m2.metric("RSI (14)", f"{rsi_ht:.2f}")
     m3.metric("Vs MA20", f"{((g_ht/ma_ht)-1)*100:+.2f}%")
-    m4.metric("Biến động ATR", f"{atr_ht:,.0f} VNĐ")
 
-    # Chart
     fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Nến Nhật', increasing_line_color='#26a69a', decreasing_line_color='#ef5350')])
     fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], line=dict(color='#ff9800', width=1.5), name='MA20'))
     fig.update_layout(template="plotly_white", xaxis_rangeslider_visible=False, height=500, margin=dict(l=10, r=10, t=10, b=10), dragmode='zoom')
     st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 
     st.markdown("---")
-    # So sánh
-    if enable_compare and ma_ss:
-        st.subheader(f"⚔️ So sánh Đối đầu: {ma_chinh} vs {ma_ss}")
-        df_s = get_stock_df(ma_ss + ".VN")
-        if df_s is not None:
-            comb = pd.concat([df['Close'], df_s['Close']], axis=1).dropna()
-            st.line_chart(pd.DataFrame({ma_chinh: (comb.iloc[:,0]/comb.iloc[0,0]-1)*100, ma_ss: (comb.iloc[:,1]/comb.iloc[0,1]-1)*100}, index=comb.index))
-
-    # Báo cáo
     st.subheader("📝 Báo cáo nhanh")
     st.text_area("Copy gửi đối tác:", value=f"NHẬN ĐỊNH {ma_chinh} ({now}): Giá {g_ht:,.0f}, RSI {rsi_ht:.2f}, Chiến lược: Mua quanh {lw_ht:,.0f}.", height=80)
 
     # Doanh thu & Thông tin
-    st.markdown("---")
     c_info, c_rev = st.columns(2)
     with c_info:
         st.subheader("🏢 Doanh nghiệp")
@@ -199,4 +177,4 @@ if df is not None:
                 st.bar_chart(data=rev_df, x='Năm', y='Doanh thu (Tỷ)', color="#26a69a")
         except: st.info("Dữ liệu tài chính đang được đồng bộ...")
 
-st.sidebar.write("💻 **Bảo Minh MBA System v2.4 Final**")
+st.sidebar.write("💻 **Bảo Minh MBA System v2.5**")
