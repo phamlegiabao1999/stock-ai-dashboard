@@ -3,6 +3,8 @@ yfinance
 pandas
 numpy
 plotly
-feedparser
-pytz
 requests
+datetime
+pytz
+feedparser
+beautifulsoup4
