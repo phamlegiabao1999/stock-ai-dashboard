@@ -14,11 +14,13 @@ from streamlit_cookies_controller import CookieController
 st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
 controller = CookieController()
 
-# Khởi tạo trạng thái đăng nhập
+# Đợi 0.1s để cookie kịp load vào hệ thống (Mẹo nhỏ cho Streamlit)
+time.sleep(0.1)
+
 if "logged_in" not in st.session_state:
-    # Kiểm tra xem trình duyệt có lưu cookie "auth_user" không
-    saved_user = controller.get('auth_user')
-    if saved_user == "baominh_verified":
+    # Kiểm tra cookie từ trình duyệt
+    token = controller.get('auth_token')
+    if token == "baominh_mba_2026_verified":
         st.session_state.logged_in = True
     else:
         st.session_state.logged_in = False
@@ -41,22 +43,21 @@ if not st.session_state.logged_in:
         with st.form("login_form"):
             user = st.text_input("👤 Tài khoản (baominh):")
             pwd = st.text_input("🔑 Mật khẩu (mba2026):", type="password")
-            remember = st.checkbox("Ghi nhớ đăng nhập trên thiết bị này", value=True)
+            remember = st.checkbox("Ghi nhớ đăng nhập (Không cần login lại)", value=True)
             submit = st.form_submit_button("🚀 ĐĂNG NHẬP HỆ THỐNG", use_container_width=True)
             
             if submit:
                 if user == "baominh" and pwd == "mba2026":
                     st.session_state.logged_in = True
                     if remember:
-                        # Lưu cookie trong 30 ngày
-                        controller.set('auth_user', 'baominh_verified', max_age=2592000)
+                        # Set cookie tồn tại trong 30 ngày
+                        controller.set('auth_token', 'baominh_mba_2026_verified', max_age=2592000)
                     st.rerun()
                 else:
                     st.error("Thông tin đăng nhập không chính xác!")
     st.stop()
 
-# --- 2. HIỆU ỨNG LOADING ---
-# Chỉ hiện loading khi mới vào, refresh sẽ bỏ qua nếu đã login
+# --- 2. HIỆU ỨNG LOADING (Chỉ hiện khi lần đầu login) ---
 if "first_load" not in st.session_state:
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
@@ -65,12 +66,12 @@ if "first_load" not in st.session_state:
         st.balloons()
         p_bar = st.progress(0)
         for p in range(101):
-            time.sleep(0.02) # Giảm nhẹ thời gian loading cho mượt
+            time.sleep(0.01) 
             p_bar.progress(p)
     st.session_state.first_load = True
     st.rerun()
 
-# --- 3. BỘ TỪ ĐIỂN MÔ TẢ (Giữ nguyên) ---
+# --- 3. BỘ TỪ ĐIỂN MÔ TẢ TIẾNG VIỆT ---
 VI_DESCRIPTIONS = {
     "VIC": "Tập đoàn Vingroup: Hệ sinh thái đa ngành hàng đầu VN (BĐS, Xe điện VinFast, Công nghệ).",
     "VHM": "Vinhomes: Nhà phát triển bất động sản thương mại lớn nhất Việt Nam.",
@@ -84,19 +85,22 @@ VI_DESCRIPTIONS = {
     "FPT": "FPT: Tập đoàn công nghệ hàng đầu Việt Nam."
 }
 
-# --- 4. HÀM HỖ TRỢ (Giữ nguyên) ---
+# --- 4. HÀM HỖ TRỢ ---
+@st.cache_data(ttl=600)
 def get_clean_data(ticker):
     if not ticker: return None, None
     symbol = ticker + ".VN" if "." not in ticker else ticker
-    stock = yf.Ticker(symbol)
-    df = stock.history(period="1y")
-    if df is not None and not df.empty:
-        df['MA20'] = df['Close'].rolling(20).mean()
-        df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
-        df['ATR'] = (df['High'] - df['Low']).rolling(14).mean()
-        d = df['Close'].diff(); g = (d.where(d > 0, 0)).rolling(14).mean(); l = (-d.where(d < 0, 0)).rolling(14).mean()
-        df['RSI'] = 100 - (100 / (1 + (g/l)))
-        return df, stock
+    try:
+        stock = yf.Ticker(symbol)
+        df = stock.history(period="1y")
+        if df is not None and not df.empty:
+            df['MA20'] = df['Close'].rolling(20).mean()
+            df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
+            df['ATR'] = (df['High'] - df['Low']).rolling(14).mean()
+            d = df['Close'].diff(); g = (d.where(d > 0, 0)).rolling(14).mean(); l = (-d.where(d < 0, 0)).rolling(14).mean()
+            df['RSI'] = 100 - (100 / (1 + (g/l)))
+            return df, stock
+    except: return None, None
     return None, None
 
 def get_news(ticker):
@@ -106,7 +110,7 @@ def get_news(ticker):
         return [{"title": e.title, "link": e.link} for e in feed.entries[:3]]
     except: return []
 
-# --- 5. DANH MỤC MÃ (Giữ nguyên) ---
+# --- 5. DANH MỤC MÃ ---
 stock_dict = {
     "HỌ NHÀ VIN": {"VIC": "Vingroup", "VHM": "Vinhomes", "VRE": "Vincom Retail"},
     "DẦU KHÍ & NĂNG LƯỢNG": {"GAS": "PV GAS", "PVD": "PV Drilling", "PVS": "PTSC", "PLX": "Petrolimex", "BSR": "Lọc dầu Bình Sơn", "OIL": "PV OIL", "POW": "PV Power"},
@@ -128,10 +132,10 @@ ma_ss = st.sidebar.selectbox("Chọn đối thủ:", options=[x for x in all_opt
 if st.sidebar.button("🔴 Đăng xuất"):
     st.session_state.logged_in = False
     st.session_state.first_load = False
-    controller.remove('auth_user') # Xóa cookie khi đăng xuất
+    controller.remove('auth_token')
     st.rerun()
 
-# --- 7. HEADER (Giữ nguyên) ---
+# --- 7. HEADER ---
 tz = pytz.timezone('Asia/Ho_Chi_Minh')
 now = datetime.now(tz).strftime("%d/%m/%Y - %H:%M:%S")
 h_col1, h_col2 = st.columns([1, 2])
@@ -142,7 +146,7 @@ with h_col2:
     if news:
         for n in news: st.markdown(f"● <a href='{n['link']}' target='_blank' style='color:#4CAF50; text-decoration:none;'>{n['title']}</a>", unsafe_allow_html=True)
 
-# --- 8. DASHBOARD (Giữ nguyên nội dung hiển thị) ---
+# --- 8. DASHBOARD ---
 if ma_chinh:
     df, stock_obj = get_clean_data(ma_chinh)
     if df is not None:
@@ -175,7 +179,7 @@ if ma_chinh:
         st.markdown("---")
         if enable_compare and ma_ss:
             st.subheader(f"⚔️ {ma_chinh} vs {ma_ss}")
-            df_s, stock_s_obj = get_clean_data(ma_ss)
+            df_s, _ = get_clean_data(ma_ss)
             if df_s is not None:
                 comb = pd.concat([df['Close'], df_s['Close']], axis=1).dropna()
                 st.line_chart(pd.DataFrame({ma_chinh: (comb.iloc[:,0]/comb.iloc[0,0]-1)*100, ma_ss: (comb.iloc[:,1]/comb.iloc[0,1]-1)*100}, index=comb.index))
@@ -225,4 +229,4 @@ if ma_chinh:
             st.subheader("🎯 Chiến lược Giao dịch")
             st.table(pd.DataFrame({"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]}))
 
-st.sidebar.write("💻 **Bảo Minh MBA System v2.2**")
+st.sidebar.write("💻 **Bảo Minh MBA System v2.3**")
