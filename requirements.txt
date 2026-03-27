@@ -1,10 +1,7 @@
 streamlit
-yfinance
 pandas
 numpy
 plotly
 requests
-datetime
 pytz
-feedparser
-beautifulsoup4
+vnstock3
