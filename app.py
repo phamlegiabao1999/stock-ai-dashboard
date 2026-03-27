@@ -8,20 +8,28 @@ from datetime import datetime
 import pytz
 import feedparser
 import random
+from streamlit_cookies_controller import CookieController
 
-# --- 1. CẤU HÌNH ---
+# --- 1. CẤU HÌNH & KIỂM TRA COOKIE ---
 st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
+controller = CookieController()
 
-# CSS HỖ TRỢ ZOOM ĐA NỀN TẢNG (SAFARI/EDGE/COCCOC)
+# Khởi tạo trạng thái đăng nhập
+if "logged_in" not in st.session_state:
+    # Kiểm tra xem trình duyệt có lưu cookie "auth_user" không
+    saved_user = controller.get('auth_user')
+    if saved_user == "baominh_verified":
+        st.session_state.logged_in = True
+    else:
+        st.session_state.logged_in = False
+
+# CSS HỖ TRỢ ZOOM
 st.markdown("""
     <style>
     .stPlotlyChart { touch-action: pan-y; }
     .js-plotly-plot .plotly .modebar { left: 50% !important; transform: translateX(-50%) !important; top: 0px !important; }
     </style>
 """, unsafe_allow_html=True)
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
 
 # --- MÀN HÌNH ĐĂNG NHẬP ---
 if not st.session_state.logged_in:
@@ -33,18 +41,23 @@ if not st.session_state.logged_in:
         with st.form("login_form"):
             user = st.text_input("👤 Tài khoản (baominh):")
             pwd = st.text_input("🔑 Mật khẩu (mba2026):", type="password")
+            remember = st.checkbox("Ghi nhớ đăng nhập trên thiết bị này", value=True)
             submit = st.form_submit_button("🚀 ĐĂNG NHẬP HỆ THỐNG", use_container_width=True)
+            
             if submit:
                 if user == "baominh" and pwd == "mba2026":
                     st.session_state.logged_in = True
+                    if remember:
+                        # Lưu cookie trong 30 ngày
+                        controller.set('auth_user', 'baominh_verified', max_age=2592000)
                     st.rerun()
                 else:
                     st.error("Thông tin đăng nhập không chính xác!")
     st.stop()
 
 # --- 2. HIỆU ỨNG LOADING ---
+# Chỉ hiện loading khi mới vào, refresh sẽ bỏ qua nếu đã login
 if "first_load" not in st.session_state:
-    investment_hints = ["💡 RSI < 30 là vùng quá bán.", "📊 MA20 là đường xu hướng ngắn hạn.", "🏢 Đầu tư vào DN bạn hiểu rõ."]
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
@@ -52,12 +65,12 @@ if "first_load" not in st.session_state:
         st.balloons()
         p_bar = st.progress(0)
         for p in range(101):
-            time.sleep(0.05) 
+            time.sleep(0.02) # Giảm nhẹ thời gian loading cho mượt
             p_bar.progress(p)
     st.session_state.first_load = True
     st.rerun()
 
-# --- 3. BỘ TỪ ĐIỂN MÔ TẢ TIẾNG VIỆT (FIX LỖI TRẮNG THÔNG TIN) ---
+# --- 3. BỘ TỪ ĐIỂN MÔ TẢ (Giữ nguyên) ---
 VI_DESCRIPTIONS = {
     "VIC": "Tập đoàn Vingroup: Hệ sinh thái đa ngành hàng đầu VN (BĐS, Xe điện VinFast, Công nghệ).",
     "VHM": "Vinhomes: Nhà phát triển bất động sản thương mại lớn nhất Việt Nam.",
@@ -71,7 +84,7 @@ VI_DESCRIPTIONS = {
     "FPT": "FPT: Tập đoàn công nghệ hàng đầu Việt Nam."
 }
 
-# --- 4. HÀM HỖ TRỢ ---
+# --- 4. HÀM HỖ TRỢ (Giữ nguyên) ---
 def get_clean_data(ticker):
     if not ticker: return None, None
     symbol = ticker + ".VN" if "." not in ticker else ticker
@@ -93,7 +106,7 @@ def get_news(ticker):
         return [{"title": e.title, "link": e.link} for e in feed.entries[:3]]
     except: return []
 
-# --- 5. DANH MỤC MÃ (ĐÃ CẬP NHẬT ĐẦY ĐỦ VIC) ---
+# --- 5. DANH MỤC MÃ (Giữ nguyên) ---
 stock_dict = {
     "HỌ NHÀ VIN": {"VIC": "Vingroup", "VHM": "Vinhomes", "VRE": "Vincom Retail"},
     "DẦU KHÍ & NĂNG LƯỢNG": {"GAS": "PV GAS", "PVD": "PV Drilling", "PVS": "PTSC", "PLX": "Petrolimex", "BSR": "Lọc dầu Bình Sơn", "OIL": "PV OIL", "POW": "PV Power"},
@@ -113,9 +126,12 @@ enable_compare = st.sidebar.checkbox("⚖️ So sánh đối thủ")
 ma_ss = st.sidebar.selectbox("Chọn đối thủ:", options=[x for x in all_options if x != ma_chinh_choice]).split(" - ")[0] if enable_compare else ""
 
 if st.sidebar.button("🔴 Đăng xuất"):
-    st.session_state.logged_in = False; st.session_state.first_load = False; st.rerun()
+    st.session_state.logged_in = False
+    st.session_state.first_load = False
+    controller.remove('auth_user') # Xóa cookie khi đăng xuất
+    st.rerun()
 
-# --- 7. HEADER ---
+# --- 7. HEADER (Giữ nguyên) ---
 tz = pytz.timezone('Asia/Ho_Chi_Minh')
 now = datetime.now(tz).strftime("%d/%m/%Y - %H:%M:%S")
 h_col1, h_col2 = st.columns([1, 2])
@@ -126,7 +142,7 @@ with h_col2:
     if news:
         for n in news: st.markdown(f"● <a href='{n['link']}' target='_blank' style='color:#4CAF50; text-decoration:none;'>{n['title']}</a>", unsafe_allow_html=True)
 
-# --- 8. DASHBOARD ---
+# --- 8. DASHBOARD (Giữ nguyên nội dung hiển thị) ---
 if ma_chinh:
     df, stock_obj = get_clean_data(ma_chinh)
     if df is not None:
@@ -209,4 +225,4 @@ if ma_chinh:
             st.subheader("🎯 Chiến lược Giao dịch")
             st.table(pd.DataFrame({"Vị thế": ["Mua mới", "Nắm giữ", "Cắt lỗ"], "Giá tham chiếu": [f"Quanh {lw_ht:,.0f}", f"Trên {ma_ht:,.0f}", f"Dưới {lw_ht*0.97:,.0f}"]}))
 
-st.sidebar.write("💻 **Bảo Minh MBA System v2.1**")
+st.sidebar.write("💻 **Bảo Minh MBA System v2.2**")
