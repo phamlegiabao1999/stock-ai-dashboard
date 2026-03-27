@@ -5,3 +5,4 @@ plotly
 requests
 pytz
 vnstock3
+ipython
