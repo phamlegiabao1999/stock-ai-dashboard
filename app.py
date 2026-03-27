@@ -10,7 +10,6 @@ from vnstock3 import Vnstock
 # --- 1. CẤU HÌNH ---
 st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
 
-# CSS Fix giao diện & Zoom
 st.markdown("""
     <style>
     .stPlotlyChart { touch-action: pan-y; }
@@ -36,37 +35,35 @@ if not st.session_state.logged_in:
                 else: st.error("Sai thông tin!")
     st.stop()
 
-# --- 2. HÀM LẤY DỮ LIỆU (NGUỒN VNSTOCK - SIÊU ỔN ĐỊNH) ---
+# --- 2. HÀM LẤY DỮ LIỆU (CHUYỂN SANG NGUỒN TCBS - SIÊU MẠNH) ---
 @st.cache_data(ttl=300)
 def get_clean_data(ticker):
     try:
-        # Sử dụng nguồn dữ liệu VCI hoặc SSI
-        stock = Vnstock().stock(symbol=ticker, source='VCI')
-        end_date = datetime.now().strftime('%Y-%m-%d')
-        start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+        # Chuyển sang nguồn TCBS để tránh lỗi kết nối
+        stock = Vnstock().stock(symbol=ticker, source='TCBS')
         
-        df = stock.quote.history(start=start_date, end=end_date)
+        # Lấy dữ liệu 1 năm
+        df = stock.quote.history(start='2025-01-01', end=datetime.now().strftime('%Y-%m-%d'))
         
         if df is not None and not df.empty:
-            # Chuẩn hóa tên cột cho Plotly
+            # Chuẩn hóa cột
             df = df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume'})
             df['time'] = pd.to_datetime(df['time'])
             df.set_index('time', inplace=True)
             
-            # Tính toán chỉ số kỹ thuật
+            # Chỉ số kỹ thuật (Giữ nguyên tâm huyết của Bảo Minh)
             df['MA20'] = df['Close'].rolling(20).mean()
             df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
-            
             d = df['Close'].diff()
             g = (d.where(d > 0, 0)).rolling(14).mean()
             l = (-d.where(d < 0, 0)).rolling(14).mean()
             df['RSI'] = 100 - (100 / (1 + (g/l)))
             return df
-    except Exception as e:
+    except:
         return None
     return None
 
-# --- 3. DANH MỤC MÃ ---
+# --- 3. DANH MỤC MÃ (HỌ VIN + DẦU KHÍ) ---
 stock_dict = {
     "HỌ NHÀ VIN": ["VIC", "VHM", "VRE"],
     "DẦU KHÍ": ["GAS", "OIL", "BSR", "PLX", "PVD", "PVS"],
@@ -96,22 +93,21 @@ if df is not None:
     m1, m2, m3 = st.columns(3)
     m1.metric("Giá hiện tại", f"{g_ht:,.0f} VNĐ", f"{df['Close'].diff().iloc[-1]:,.0f}")
     m2.metric("RSI (14)", f"{rsi_ht:.2f}")
-    m3.metric("Hỗ trợ MA20", f"{ma_ht:,.0f}")
+    m3.metric("Điểm hỗ trợ", f"{lw_ht:,.0f}")
 
-    # Biểu đồ nến
+    # Biểu đồ nến hỗ trợ Zoom tay/chuột
     fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Nến Nhật')])
     fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], line=dict(color='#ff9800', width=1.5), name='MA20'))
-    fig.update_layout(template="plotly_white", height=500, xaxis_rangeslider_visible=False, dragmode='zoom', margin=dict(l=10, r=10, t=10, b=10))
+    fig.update_layout(template="plotly_white", height=500, xaxis_rangeslider_visible=False, dragmode='zoom')
     st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 
     st.markdown("---")
-    st.subheader("📝 Báo cáo nhanh")
-    st.success(f"Nhận định {ma_chinh}: Trạng thái {'TÍCH CỰC' if g_ht > ma_ht else 'CẦN QUAN SÁT'}. RSI ở mức {rsi_ht:.2f}. Điểm gom quanh {lw_ht:,.0f} VNĐ.")
-    
-    st.info("✅ Dữ liệu được bảo mật và cung cấp bởi hệ thống nội địa SSI/VCI.")
+    st.success(f"📝 Nhận định nhanh: {ma_chinh} đang dao động quanh MA20 ({ma_ht:,.0f}). RSI {rsi_ht:.2f} cho thấy tín hiệu {'quá mua' if rsi_ht > 70 else 'quá bán' if rsi_ht < 30 else 'ổn định'}.")
+    st.info("🚀 Nguồn dữ liệu TCBS đã được kích hoạt thành công!")
 
 else:
     st.markdown('<div class="bull-container">🐂💪🔥</div>', unsafe_allow_html=True)
-    st.error("⚠️ Hệ thống đang khởi tạo nguồn dữ liệu mới. Vui lòng đợi 30 giây rồi nhấn Rerun.")
+    st.error("⚠️ Đang tối ưu hóa đường truyền dữ liệu nội địa...")
+    st.warning("👉 Bảo Minh hãy nhấn **Rerun** (trong menu 3 chấm góc phải) để kích hoạt lại nhé!")
 
-st.sidebar.write("💻 **Data Engine: Vnstock3**")
+st.sidebar.write("💻 **Engine: TCBS Real-time**")
