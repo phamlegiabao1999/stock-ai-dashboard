@@ -1,8 +1,8 @@
 streamlit
+yfinance
 pandas
 numpy
 plotly
-requests
+feedparser
 pytz
-vnstock3
-ipython
+requests
