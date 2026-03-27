@@ -34,31 +34,30 @@ if not st.session_state.logged_in:
                 else: st.error("Sai thông tin!")
     st.stop()
 
-# --- 2. ENGINE LẤY DỮ LIỆU NỘI ĐỊA (SOURCE: TCBS) ---
+# --- 2. ENGINE LẤY DỮ LIỆU SIÊU ỔN ĐỊNH (AUTO-RETRY) ---
 @st.cache_data(ttl=300)
 def get_realtime_data(ticker):
-    try:
-        # Sử dụng TCBS để lấy dữ liệu khớp giá sàn nhất
-        stock = Vnstock().stock(symbol=ticker, source='TCBS')
-        df = stock.quote.history(start='2025-01-01', end=datetime.now().strftime('%Y-%m-%d'))
-        
-        if df is not None and not df.empty:
-            df = df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume'})
-            df['time'] = pd.to_datetime(df['time'])
-            df.set_index('time', inplace=True)
-            
-            # TÍNH TOÁN KỸ THUẬT CHUẨN
-            df['MA20'] = df['Close'].rolling(window=20).mean()
-            df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
-            
-            delta = df['Close'].diff()
-            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            df['RSI'] = 100 - (100 / (1 + (gain/loss)))
-            
-            return df
-    except:
-        return None
+    # Thử kết nối 3 lần để tránh lỗi "Hệ thống đang cài đặt"
+    for i in range(3):
+        try:
+            stock = Vnstock().stock(symbol=ticker, source='TCBS')
+            df = stock.quote.history(start='2025-01-01', end=datetime.now().strftime('%Y-%m-%d'))
+            if df is not None and not df.empty:
+                df = df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume'})
+                df['time'] = pd.to_datetime(df['time'])
+                df.set_index('time', inplace=True)
+                
+                # Chỉ số kỹ thuật chuẩn MBA
+                df['MA20'] = df['Close'].rolling(window=20).mean()
+                df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
+                delta = df['Close'].diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                df['RSI'] = 100 - (100 / (1 + (gain/loss)))
+                return df
+        except:
+            time.sleep(2) # Đợi 2 giây rồi thử lại
+    return None
 
 # --- 3. DANH MỤC MÃ ---
 stock_dict = {
@@ -69,7 +68,7 @@ stock_dict = {
 all_options = [ticker for sub in stock_dict.values() for ticker in sub]
 
 # --- 4. SIDEBAR ---
-st.sidebar.title("Bảo Minh MBA v6.1")
+st.sidebar.title("Bảo Minh MBA v6.2")
 ma_chinh = st.sidebar.selectbox("Mã phân tích:", options=all_options)
 if st.sidebar.button("🔴 Đăng xuất"):
     st.session_state.logged_in = False; st.rerun()
@@ -100,6 +99,8 @@ if df is not None:
 
 else:
     st.markdown('<div class="bull-container">🐂💪🔥</div>', unsafe_allow_html=True)
-    st.error("⚠️ Hệ thống đang cài đặt thư viện mới. Bảo Minh hãy đợi 30 giây rồi nhấn Rerun nhé!")
+    st.warning("🚀 Đang đồng bộ dữ liệu Realtime... Bảo Minh hãy đợi vài giây, App sẽ tự động tải lại.")
+    time.sleep(5)
+    st.rerun() # Tự động Rerun cho bạn luôn!
 
-st.sidebar.write("💻 **Engine: Vnstock3 Realtime**")
+st.sidebar.write("💻 **Engine: Vnstock3 Ultra Stable**")
