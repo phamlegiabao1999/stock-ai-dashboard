@@ -8,6 +8,7 @@ from datetime import datetime
 import pytz
 import feedparser
 import random
+import requests # Thêm thư viện này để quản lý kết nối
 
 # --- 1. CẤU HÌNH ---
 st.set_page_config(page_title="Stock Analytics Pro - Bảo Minh MBA", layout="wide")
@@ -48,7 +49,7 @@ if "first_load" not in st.session_state:
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         st.markdown("<h3 style='text-align: center;'>🏋️‍♂️ Đang kết nối máy chủ Hồ Chí Minh...</h3>", unsafe_allow_html=True)
-        st.markdown("<h1 style='text-align: center; font-size: 150px;'>🐂🏄🎭</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; font-size: 150px;'>🐂💪🔥</h1>", unsafe_allow_html=True)
         st.balloons()
         p_bar = st.progress(0)
         for p in range(101):
@@ -71,19 +72,30 @@ VI_DESCRIPTIONS = {
     "FPT": "FPT: Tập đoàn công nghệ hàng đầu Việt Nam."
 }
 
-# --- 4. HÀM HỖ TRỢ ---
+# --- 4. HÀM HỖ TRỢ (FIX LỖI RATE LIMIT) ---
 def get_clean_data(ticker):
     if not ticker: return None, None
     symbol = ticker + ".VN" if "." not in ticker else ticker
-    stock = yf.Ticker(symbol)
-    df = stock.history(period="1y")
-    if df is not None and not df.empty:
-        df['MA20'] = df['Close'].rolling(20).mean()
-        df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
-        df['ATR'] = (df['High'] - df['Low']).rolling(14).mean()
-        d = df['Close'].diff(); g = (d.where(d > 0, 0)).rolling(14).mean(); l = (-d.where(d < 0, 0)).rolling(14).mean()
-        df['RSI'] = 100 - (100 / (1 + (g/l)))
-        return df, stock
+    
+    # Tạo session để tránh bị Yahoo khóa IP
+    session = requests.Session()
+    session.headers.update({'User-Agent': 'Mozilla/5.0'})
+    
+    try:
+        stock = yf.Ticker(symbol, session=session)
+        # Sử dụng khoảng thời gian dài hơn một chút để tránh request liên tục
+        df = stock.history(period="1y", interval="1d")
+        
+        if df is not None and not df.empty:
+            df['MA20'] = df['Close'].rolling(20).mean()
+            df['Lower'] = df['MA20'] - (df['Close'].rolling(20).std() * 2)
+            df['ATR'] = (df['High'] - df['Low']).rolling(14).mean()
+            d = df['Close'].diff(); g = (d.where(d > 0, 0)).rolling(14).mean(); l = (-d.where(d < 0, 0)).rolling(14).mean()
+            df['RSI'] = 100 - (100 / (1 + (g/l)))
+            return df, stock
+    except Exception as e:
+        st.warning(f"⚠️ Yahoo Finance đang bận, vui lòng thử lại sau 5 giây.")
+        return None, None
     return None, None
 
 def get_news(ticker):
@@ -93,7 +105,7 @@ def get_news(ticker):
         return [{"title": e.title, "link": e.link} for e in feed.entries[:3]]
     except: return []
 
-# --- 5. DANH MỤC MÃ (ĐÃ CẬP NHẬT ĐẦY ĐỦ VIC) ---
+# --- 5. DANH MỤC MÃ (ĐẦY ĐỦ VIC & CÁC NGÀNH) ---
 stock_dict = {
     "HỌ NHÀ VIN": {"VIC": "Vingroup", "VHM": "Vinhomes", "VRE": "Vincom Retail"},
     "DẦU KHÍ & NĂNG LƯỢNG": {"GAS": "PV GAS", "PVD": "PV Drilling", "PVS": "PTSC", "PLX": "Petrolimex", "BSR": "Lọc dầu Bình Sơn", "OIL": "PV OIL", "POW": "PV Power"},
@@ -126,7 +138,7 @@ with h_col2:
     if news:
         for n in news: st.markdown(f"● <a href='{n['link']}' target='_blank' style='color:#4CAF50; text-decoration:none;'>{n['title']}</a>", unsafe_allow_html=True)
 
-# --- 8. DASHBOARD ---
+# --- 8. HIỂN THỊ DASHBOARD ---
 if ma_chinh:
     df, stock_obj = get_clean_data(ma_chinh)
     if df is not None:
